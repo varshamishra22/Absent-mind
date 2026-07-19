@@ -1,0 +1,439 @@
+gi<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Initializing Absent Mind...</title>
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; background: #050508; font-family: 'Inter', sans-serif; color: #fff; cursor: default; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        
+        #ui-layer { 
+            position: relative; z-index: 10; height: 100vh; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            pointer-events: none; 
+        }
+        
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(20, 18, 30, 0.6), rgba(5, 5, 12, 0.8));
+            backdrop-filter: blur(24px); 
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255,255,255,0.08); 
+            border-top: 1px solid rgba(255,255,255,0.2);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            border-radius: 32px; 
+            padding: 40px 50px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.8), inset 0 0 60px rgba(108,99,255,0.05);
+            text-align: center; 
+            max-width: 540px; width: 90%;
+            transform: translateY(100px);
+            opacity: 0;
+        }
+        
+        .type-text { 
+            font-family: 'Space Grotesk', sans-serif; 
+            min-height: 48px; 
+            letter-spacing: -0.5px;
+        }
+        
+        .progress-container { 
+            width: 100%; height: 4px; 
+            background: rgba(255,255,255,0.05); 
+            border-radius: 4px; margin-top: 32px; 
+            overflow: hidden; 
+            position: relative;
+        }
+        
+        .progress-bar { 
+            height: 100%; width: 0%; 
+            background: linear-gradient(90deg, #6c63ff, #8b7dff, #2ed589); 
+            box-shadow: 0 0 15px rgba(108, 99, 255, 0.6); 
+            border-radius: 4px;
+        }
+        
+        .flash-overlay { 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: #fff; z-index: 100; opacity: 0; pointer-events: none; 
+        }
+
+        .loader-ring {
+            width: 70px; height: 70px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.05);
+            border-top-color: #6c63ff; 
+            border-left-color: #2ed589;
+            animation: spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+            margin: 0 auto 24px auto;
+            position: relative;
+        }
+        
+        .loader-ring::before {
+            content: '';
+            position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px;
+            border-radius: 50%; border: 2px solid transparent;
+            border-bottom-color: #a78bfa; border-right-color: #ff9f43;
+            animation: spin 2s linear infinite reverse;
+        }
+        
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="ui-layer">
+    <div class="glass-panel" id="loading-panel">
+        <div class="loader-ring" id="ring"></div>
+        <h2 id="dynamic-text" class="text-3xl font-bold text-white type-text text-shadow-sm">
+            Initializing System...
+        </h2>
+        <p class="text-[rgba(255,255,255,0.5)] text-[15px] mt-4" id="sub-text">Establishing secure connection.</p>
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="text-[11px] tracking-[0.25em] text-[rgba(255,255,255,0.3)] mt-6 uppercase font-medium">Absent Mind Engine v2.0</div>
+    </div>
+</div>
+
+<div class="flash-overlay" id="flash"></div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+    }
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<script type="module">
+    import * as THREE from 'three';
+
+    // SCENE SETUP
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x050508, 0.05);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0.2, 5.5);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    // BACKGROUND STARS (Light particles moving towards center)
+    const bgGeo = new THREE.BufferGeometry();
+    const bgPos = [];
+    for(let i=0; i<1000; i++) {
+        bgPos.push((Math.random()-0.5)*30, (Math.random()-0.5)*30, (Math.random()-0.5)*30);
+    }
+    bgGeo.setAttribute('position', new THREE.Float32BufferAttribute(bgPos, 3));
+    const bgMat = new THREE.PointsMaterial({ color: 0x444488, size: 0.03, transparent: true, opacity: 0.4 });
+    const bgStars = new THREE.Points(bgGeo, bgMat);
+    scene.add(bgStars);
+
+    // BRAIN PARTICLES
+    const brainGroup = new THREE.Group();
+    scene.add(brainGroup);
+    
+    const particleCount = 8000;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const targetPositions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+
+    const c1 = new THREE.Color(0x6c63ff); // Purple
+    const c2 = new THREE.Color(0x38bdf8); // Light Blue
+    const c3 = new THREE.Color(0x2ed589); // Green/Cyan
+
+    for(let i=0; i<particleCount; i++) {
+        let x, y, z;
+        let valid = false;
+        // Generate points that fit inside a stylized dual-lobe brain volume
+        while(!valid) {
+            x = (Math.random() - 0.5) * 5;
+            y = (Math.random() - 0.5) * 4;
+            z = (Math.random() - 0.5) * 4.5;
+            
+            const distL = Math.pow(x+0.8, 2)/1.6 + Math.pow(y, 2)/1.3 + Math.pow(z, 2)/1.8;
+            const distR = Math.pow(x-0.8, 2)/1.6 + Math.pow(y, 2)/1.3 + Math.pow(z, 2)/1.8;
+            
+            if(distL < 1 || distR < 1) valid = true;
+            if(Math.abs(x) < 0.25 && Math.random() < 0.85) valid = false; // Gap between hemispheres
+            if(y < -1.0 && Math.abs(x) < 0.5) valid = true; // Brainstem area
+        }
+
+        // Noise for organic sulci/gyri (creases)
+        const noise = Math.sin(x*4) * Math.cos(y*4) * Math.sin(z*4);
+        if(noise > 0.3) {
+            x *= 0.9;
+            y *= 0.9;
+            z *= 0.9;
+        }
+
+        targetPositions[i*3] = x;
+        targetPositions[i*3+1] = y;
+        targetPositions[i*3+2] = z;
+
+        // Spread them out initially (Confused/Scattered state)
+        positions[i*3] = x + (Math.random()-0.5)*15;
+        positions[i*3+1] = y + (Math.random()-0.5)*15;
+        positions[i*3+2] = z + (Math.random()-0.5)*15;
+
+        // Mix colors
+        const r = Math.random();
+        let targetColor = c1;
+        if(r > 0.5) targetColor = c2;
+        if(r > 0.85) targetColor = c3;
+        colors[i*3] = targetColor.r;
+        colors[i*3+1] = targetColor.g;
+        colors[i*3+2] = targetColor.b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('targetPos', new THREE.BufferAttribute(targetPositions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 },
+            progress: { value: 0 }, // 0 to 1 merging
+        },
+        vertexShader: `
+            uniform float time;
+            uniform float progress;
+            attribute vec3 targetPos;
+            attribute vec3 color;
+            varying vec3 vColor;
+            void main() {
+                vColor = color;
+                // Interpolate from scattered to focused
+                vec3 finalPos = mix(position, targetPos, progress);
+                
+                // Add a breathing/pulsing animation
+                finalPos += normal * sin(time * 2.0 + finalPos.y * 5.0) * 0.03 * progress;
+                
+                vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+                gl_PointSize = (1.5 + sin(time * 4.0 + finalPos.x * 12.0)) * (8.0 / -mvPosition.z) * (progress * 0.8 + 0.2);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `,
+        fragmentShader: `
+            varying vec3 vColor;
+            void main() {
+                float dist = length(gl_PointCoord - vec2(0.5));
+                if(dist > 0.5) discard;
+                float alpha = 1.0 - (dist * 2.0);
+                gl_FragColor = vec4(vColor, alpha * 0.9);
+            }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+    });
+
+    const brainParticles = new THREE.Points(geometry, material);
+    brainGroup.add(brainParticles);
+    
+    // Position brain slightly up
+    brainGroup.position.y = 0.5;
+
+    // FLOWING ENERGY LINES (Neural Networks)
+    const lineCount = 150;
+    const lineGeo = new THREE.BufferGeometry();
+    const linePos = [];
+    for(let i=0; i<lineCount; i++) {
+        const idx = Math.floor(Math.random() * particleCount);
+        const p1 = new THREE.Vector3(targetPositions[idx*3], targetPositions[idx*3+1], targetPositions[idx*3+2]);
+        for(let j=0; j<lineCount; j++) {
+            if(i===j) continue;
+            const jdx = Math.floor(Math.random() * particleCount);
+            const p2 = new THREE.Vector3(targetPositions[jdx*3], targetPositions[jdx*3+1], targetPositions[jdx*3+2]);
+            if(p1.distanceTo(p2) < 0.8) {
+                linePos.push(p1.x, p1.y, p1.z);
+                linePos.push(p2.x, p2.y, p2.z);
+            }
+        }
+    }
+    lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
+    const lineMat = new THREE.LineBasicMaterial({
+        color: 0x6c63ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending
+    });
+    const neuralLines = new THREE.LineSegments(lineGeo, lineMat);
+    brainGroup.add(neuralLines);
+
+
+    // FLOATING OBJECTS (Books, Icons, Cubes)
+    const objectsGroup = new THREE.Group();
+    scene.add(objectsGroup);
+    const objMats = [
+        new THREE.MeshBasicMaterial({ color: 0x6c63ff, wireframe: true, transparent: true, opacity: 0.3 }),
+        new THREE.MeshBasicMaterial({ color: 0x2ed589, wireframe: true, transparent: true, opacity: 0.3 }),
+        new THREE.MeshBasicMaterial({ color: 0xa78bfa, wireframe: true, transparent: true, opacity: 0.3 })
+    ];
+    const objGeos = [
+        new THREE.BoxGeometry(0.3, 0.4, 0.05), // Book shape
+        new THREE.OctahedronGeometry(0.2),
+        new THREE.TetrahedronGeometry(0.25)
+    ];
+    const floaters = [];
+    for(let i=0; i<20; i++) {
+        const mesh = new THREE.Mesh(objGeos[i%3], objMats[i%3]);
+        // randomly place
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 4 + Math.random() * 5;
+        mesh.position.set(Math.cos(angle)*radius, (Math.random()-0.5)*6, Math.sin(angle)*radius);
+        mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+        objectsGroup.add(mesh);
+        floaters.push({
+            mesh, 
+            speed: 0.005 + Math.random()*0.015, 
+            angle, 
+            radius,
+            yOffset: mesh.position.y
+        });
+    }
+
+    // ANIMATION LOOP
+    const clock = new THREE.Clock();
+    function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+        
+        // Update shader uniforms
+        material.uniforms.time.value = t;
+        
+        // Brain rotation
+        brainGroup.rotation.y = t * 0.4;
+        brainGroup.rotation.z = Math.sin(t * 0.8) * 0.05;
+
+        // Background stars flow towards user
+        const bgPosAttr = bgGeo.attributes.position;
+        for(let i=0; i<1000; i++) {
+            let z = bgPosAttr.getZ(i) + 0.05;
+            if(z > 15) z = -15;
+            bgPosAttr.setZ(i, z);
+        }
+        bgPosAttr.needsUpdate = true;
+
+        // Floaters orbit
+        floaters.forEach(f => {
+            f.angle += f.speed;
+            f.mesh.position.x = Math.cos(f.angle) * f.radius;
+            f.mesh.position.z = Math.sin(f.angle) * f.radius;
+            f.mesh.position.y = f.yOffset + Math.sin(t * 2 + f.angle);
+            f.mesh.rotation.x += 0.01;
+            f.mesh.rotation.y += 0.02;
+        });
+
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Initial UI Pop-in
+    gsap.to("#loading-panel", { y: 0, opacity: 1, duration: 1.5, ease: "power4.out", delay: 0.5 });
+
+    // States configuration
+    const states = [
+        { text: "Initializing Absent Mind...", sub: "Calibrating neural pathways.", duration: 1500 },
+        { text: "Organizing Your Thoughts...", sub: "Structuring memory clusters.", duration: 1500 },
+        { text: "Boosting Focus...", sub: "Synthesizing AI learning modules.", duration: 1500 },
+        { text: "Almost Ready...", sub: "Polishing glass UI elements.", duration: 1500 },
+        { text: "Welcome to Smarter Learning", sub: "Launch sequence initiated.", duration: 1500 }
+    ];
+
+    let currentStep = 0;
+    const totalSteps = states.length;
+
+    function nextStep() {
+        if(currentStep >= totalSteps) {
+            finishAnimation();
+            return;
+        }
+
+        const stepObj = states[currentStep];
+        const stepProgress = (currentStep + 1) / totalSteps;
+        
+        // UI Text Animation
+        const dynText = document.getElementById("dynamic-text");
+        const subText = document.getElementById("sub-text");
+        
+        if(currentStep > 0) {
+            gsap.to([dynText, subText], { 
+                opacity: 0, y: -10, duration: 0.3, stagger: 0.05, 
+                onComplete: () => {
+                    dynText.innerText = stepObj.text;
+                    subText.innerText = stepObj.sub;
+                    gsap.fromTo([dynText, subText], 
+                        { opacity: 0, y: 10 }, 
+                        { opacity: 1, y: 0, duration: 0.4, stagger: 0.1, ease: "power2.out" }
+                    );
+                }
+            });
+        }
+
+        // Progress Bar
+        gsap.to("#progress-bar", { 
+            width: `${stepProgress * 100}%`, 
+            duration: stepObj.duration / 1000, 
+            ease: "power2.inOut" 
+        });
+        
+        // 3D Brain merging animation
+        gsap.to(material.uniforms.progress, { 
+            value: stepProgress, 
+            duration: (stepObj.duration / 1000) * 0.8, 
+            ease: "power2.inOut" 
+        });
+
+        // Gradually reveal glowing neural lines
+        if(currentStep === 1) gsap.to(lineMat, { opacity: 0.15, duration: 2 });
+        if(currentStep === 3) gsap.to(lineMat, { opacity: 0.4, duration: 2 });
+
+        currentStep++;
+        setTimeout(nextStep, stepObj.duration + 400); // Wait step duration + text anim time
+    }
+
+    // Start sequence
+    setTimeout(nextStep, 1500);
+
+    function finishAnimation() {
+        // Ultimate Brain Glow
+        gsap.to(lineMat, { opacity: 1, duration: 1 });
+        gsap.to(material.uniforms.progress, { value: 1.1, duration: 1, ease: "power4.out" }); // Overshoot slightly
+        
+        // Hide UIds
+        gsap.to("#loading-panel", { y: -100, opacity: 0, scale: 0.9, duration: 0.8, ease: "power3.in" });
+
+        // Zoom Camera into Brain
+        gsap.to(camera.position, {
+            z: 0.2,
+            y: 0.5,
+            duration: 1.5,
+            ease: "power4.in",
+            onComplete: () => {
+                // Redirect immediately after zoom finishes
+                window.location.href = 'loginpage.html';
+            }
+        });
+
+        // Flash screen white simultaneously with Zoom completing
+        gsap.to("#flash", {
+            opacity: 1,
+            duration: 0.5,
+            delay: 1.0,
+            ease: "power2.in"
+        });
+    }
+
+</script>
+</body>
+</html>

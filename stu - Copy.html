@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Galaxy Learning - Student Login</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #0B0F1A; font-family: 'Inter', sans-serif; cursor: default; }
+    
+    #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; transition: opacity 1s; }
+    
+    #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+    
+    /* Center portal text overlay */
+    .portal-text {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #fff; text-transform: uppercase; font-family: 'Orbitron', sans-serif;
+      font-size: 2.2rem; font-weight: 900; letter-spacing: 6px; pointer-events: auto;
+      text-shadow: 0 0 20px #3B82F6, 0 0 40px #3B82F6;
+      animation: pulseText 2s infinite alternate; transition: opacity 0.5s; cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+    }
+    
+    
+    .portal-text:hover { animation: pulseTextHover 0.5s infinite alternate; }
+
+    @keyframes pulseText {
+      0% { text-shadow: 0 0 15px #3B82F6, 0 0 30px #8B5CF6; transform: translate(-50%, -50%) scale(1); }
+      100% { text-shadow: 0 0 25px #22D3EE, 0 0 60px #8B5CF6, 0 0 80px #22D3EE; transform: translate(-50%, -50%) scale(1.05); }
+    }
+
+    @keyframes pulseTextHover {
+      0% { text-shadow: 0 0 25px #fff, 0 0 50px #22D3EE; transform: translate(-50%, -50%) scale(1.05); }
+      100% { text-shadow: 0 0 40px #fff, 0 0 80px #22D3EE; transform: translate(-50%, -50%) scale(1.1); }
+    }
+
+    /* Tooltip styling for hovered planets */
+    #tooltip {
+      position: absolute; padding: 10px 20px; background: rgba(11, 15, 26, 0.85);
+      border: 1px solid #3B82F6; border-radius: 12px; color: #fff;
+      font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: bold; letter-spacing: 2px;
+      pointer-events: none; opacity: 0; transition: opacity 0.3s;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); backdrop-filter: blur(8px);
+      transform: translate(-50%, -180%);
+    }
+
+    /* Glassmorphism Login Form */
+    #login-modal {
+      position: absolute; top: 60%; left: 50%; transform: translate(-50%, -40%);
+      width: 440px; max-width: 90vw; padding: 50px 40px; border-radius: 24px;
+      background: rgba(255, 255, 255, 0.03); 
+      backdrop-filter: blur(12px) saturate(180%); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.05), 0 0 40px rgba(59, 130, 246, 0.1);
+      pointer-events: auto; opacity: 0; visibility: hidden;
+      transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #login-modal.active { opacity: 1; visibility: visible; top: 50%; transform: translate(-50%, -50%); }
+
+    .login-title {
+      color: #fff; font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 900;
+      text-align: center; margin-bottom: 40px; letter-spacing: 3px;
+      background: linear-gradient(135deg, #22D3EE, #8B5CF6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+    }
+
+    .form-group { margin-bottom: 30px; position: relative; }
+    
+    .form-group input {
+      width: 100%; padding: 18px 20px; background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 14px;
+      color: #fff; font-size: 16px; outline: none; transition: all 0.3s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .form-group input:focus, .form-group input:not(:placeholder-shown) {
+      border-color: #3B82F6; box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+      background: rgba(59, 130, 246, 0.05);
+    }
+    
+    .form-group input:focus {
+      transform: translateY(-2px);
+    }
+
+    .form-group label {
+      position: absolute; left: 20px; top: 18px; color: #888;
+      font-size: 15px; pointer-events: none; transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1) all;
+    }
+
+    .form-group input:focus ~ label, .form-group input:not(:placeholder-shown) ~ label {
+      top: -12px; left: 15px; font-size: 12px; color: #22D3EE;
+      background: #0B0F1A; padding: 0 8px; border-radius: 6px; border: 1px solid #22D3EE;
+      letter-spacing: 1px; text-transform: uppercase; font-weight: bold;
+    }
+
+    .login-btn {
+      width: 100%; padding: 18px; border: none; border-radius: 14px;
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6); color: #fff;
+      font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: bold;
+      letter-spacing: 2px; cursor: pointer; transition: all 0.4s ease;
+      position: relative; overflow: hidden;
+      box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4); margin-top: 10px;
+    }
+
+    .login-btn::before {
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .login-btn:hover {
+      transform: translateY(-4px) scale(1.02); box-shadow: 0 15px 40px rgba(34, 211, 238, 0.6);
+      background: linear-gradient(135deg, #22D3EE, #8B5CF6);
+    }
+
+    .login-btn:hover::before { left: 100%; }
+
+    /* Floating particles around form to add extra neon depth */
+    .form-glow {
+      position: absolute; width: 150px; height: 150px; background: #8B5CF6;
+      filter: blur(80px); border-radius: 50%; z-index: -1; opacity: 0.4;
+      top: -50px; right: -50px; animation: glowFloat 6s infinite alternate;
+    }
+    .form-glow-2 {
+      position: absolute; width: 120px; height: 120px; background: #22D3EE;
+      filter: blur(70px); border-radius: 50%; z-index: -1; opacity: 0.3;
+      bottom: -30px; left: -40px; animation: glowFloat2 5s infinite alternate;
+    }
+
+    @keyframes glowFloat { 100% { transform: translate(-30px, 40px); } }
+    @keyframes glowFloat2 { 100% { transform: translate(40px, -30px); } }
+
+    /* ========================================================= 
+                 QUIZ SYSTEM STYLES
+       ========================================================= */
+    #quiz-dashboard {
+      display: none; opacity: 0; position: absolute; inset: 0;
+      z-index: 100; background: rgba(11, 15, 26, 0.95);
+      backdrop-filter: blur(20px); pointer-events: none;
+      transition: opacity 1s ease; overflow-y: auto; padding: 40px 20px;
+    }
+    #quiz-dashboard.active { display: block; opacity: 1; pointer-events: auto; }
+    
+    .glass-panel {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px; padding: 40px; margin: 0 auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.02);
+      max-width: 800px; text-align: center; color: #fff;
+    }
+    
+    .quiz-select {
+      background: rgba(0,0,0,0.5); border: 1px solid #3B82F6; color: #fff;
+      padding: 15px 20px; border-radius: 12px; font-size: 1.2rem;
+      font-family: 'Inter', sans-serif; outline: none; cursor: pointer;
+    }
+    .quiz-select option { background: #0B0F1A; }
+    
+    .quiz-question-box {
+      font-size: 1.8rem; font-family: 'Orbitron', sans-serif;
+      margin-bottom: 30px; color: #22D3EE; text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+    }
+    
+    .quiz-option {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      padding: 20px; border-radius: 16px; margin-bottom: 15px;
+      cursor: pointer; transition: all 0.3s; font-size: 1.2rem; text-align: left;
+    }
+    .quiz-option:hover { background: rgba(59, 130, 246, 0.2); border-color: #3B82F6; transform: translateX(10px); }
+    .quiz-option.correct { background: rgba(34, 197, 94, 0.2) !important; border-color: #22C55E !important; color: #22C55E; }
+    .quiz-option.wrong { background: rgba(239, 68, 68, 0.2) !important; border-color: #EF4444 !important; color: #EF4444; }
+
+    /* Animated AI Tutor */
+    #ai-tutor-modal {
+      position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.8);
+      display: none; align-items: center; justify-content: center; backdrop-filter: blur(10px);
+    }
+    .ai-tutor-content {
+      background: linear-gradient(135deg, #1E1B4B, #312E81); border-radius: 24px;
+      padding: 40px; width: 90%; max-width: 800px; border: 2px solid #8B5CF6;
+      box-shadow: 0 0 50px rgba(139, 92, 246, 0.5); text-align: center; color: white;
+      position: relative; overflow: hidden;
+    }
+    .robot-svg { width: 120px; height: 120px; margin-bottom: 20px; animation: floatBot 3s infinite ease-in-out; }
+    @keyframes floatBot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+    
+    .anim-container { height: 250px; background: rgba(0,0,0,0.3); border-radius: 16px; margin: 20px 0; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+
+  </style>
+</head>
+<body>
+  
+  <div id="canvas-container"></div>
+  
+  <div id="ui-layer">
+    <!-- Center Portal interactive label -->
+    <div id="portal-text" class="portal-text">Student Login</div>
+    
+    <!-- Hover subject info overlay -->
+    <div id="tooltip">SUBJECT NAME</div>
+    
+    <!-- Student Login Form -->
+    <div id="login-modal">
+      <div class="form-glow"></div>
+      <div class="form-glow-2"></div>
+      <h2 class="login-title">STUDENT LOGIN</h2>
+      
+      <form onsubmit="event.preventDefault(); startAuthentication();">
+        <div class="form-group">
+          <!-- empty placeholder enables the :not(:placeholder-shown) css selector -->
+          <input type="text" id="roll" placeholder=" " required />
+          <label>Student Roll Number</label>
+        </div>
+        <div class="form-group">
+          <input type="password" id="password" placeholder=" " required />
+          <label>Password</label>
+        </div>
+        <button type="submit" class="login-btn" id="submit-btn">ENTER SYSTEM</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- QUIZ DASHBOARD -->
+  <div id="quiz-dashboard">
+    <div id="quiz-selection-phase" class="glass-panel">
+      <h1 style="font-family: 'Orbitron'; font-size: 3rem; color: #fff; margin-bottom: 30px; text-shadow: 0 0 20px #8B5CF6;">AI QUIZ PORTAL</h1>
+      <p style="color: #888; font-size: 1.2rem; margin-bottom: 40px;">Select your class and subject to start the adaptive learning challenge.</p>
+      
+      <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap;">
+          <select id="class-select" class="quiz-select">
+              <option value="1">Class 1</option><option value="2">Class 2</option><option value="3">Class 3</option><option value="4">Class 4</option>
+              <option value="5">Class 5</option><option value="6">Class 6</option><option value="7">Class 7</option><option value="8" selected>Class 8</option>
+          </select>
+          <select id="subject-select" class="quiz-select">
+              <option value="Math">Mathematics</option>
+              <option value="Science">Science</option>
+              <option value="English">English</option>
+              <option value="Hindi">Hindi</option>
+              <option value="Social">Social Studies</option>
+          </select>
+      </div>
+      <button class="login-btn" onclick="startQuizEngine()" style="max-width: 300px; margin: 0 auto;">START MISSION</button>
+    </div>
+
+    <!-- QUIZ ENGINE PHASE -->
+    <div id="quiz-engine-phase" class="glass-panel" style="display: none; text-align: left;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+          <div style="font-size: 1.2rem; color: #8B5CF6; font-weight: bold;" id="quiz-level-badge">Level: <span style="color:#fff;" id="lvl-text">Easy</span></div>
+          <div style="font-size: 1.2rem; color: #22D3EE; font-weight: bold;">Score: <span id="quiz-live-score" style="color:#fff;">0</span></div>
+      </div>
+      
+      <div id="quiz-question-container" class="quiz-question-box">Loading Question...</div>
+      <div id="quiz-options-container">
+          <!-- Options Injected Here -->
+      </div>
+    </div>
+
+    <!-- EVALUATION PHASE -->
+    <div id="quiz-eval-phase" class="glass-panel" style="display: none;">
+      <h1 style="font-family: 'Orbitron'; font-size: 3rem; color: #22C55E; margin-bottom: 20px;">MISSION COMPLETE</h1>
+      <div style="font-size: 5rem; font-weight: 900; color: #22D3EE; text-shadow: 0 0 30px #22D3EE; margin-bottom: 20px;" id="eval-score">0%</div>
+      <p style="font-size: 1.2rem; color: #aaa; margin-bottom: 40px;" id="eval-msg">Calculating your cognitive growth...</p>
+      <button class="login-btn" onclick="reviewMistakes()" id="review-btn" style="display: none; background: linear-gradient(135deg, #EF4444, #F59E0B); max-width: 400px; margin: 0 auto;">REVIEW MISTAKES (AI TUTOR)</button>
+      <button class="login-btn" onclick="location.reload()" style="margin-top: 15px; background: rgba(255,255,255,0.1); color: #fff; max-width: 400px; margin: 15px auto 0 auto;">RETURN TO ORBIT</button>
+    </div>
+  </div>
+
+  <!-- AI TUTOR MODAL -->
+  <div id="ai-tutor-modal">
+      <div class="ai-tutor-content">
+          <!-- Friendly SVG Robot -->
+          <svg class="robot-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="20" y="30" width="60" height="50" rx="10" fill="#22D3EE" />
+              <rect x="35" y="45" width="30" height="15" rx="5" fill="#0B0F1A" />
+              <circle cx="42" cy="52" r="3" fill="#22C55E" />
+              <circle cx="58" cy="52" r="3" fill="#22C55E" />
+              <path d="M50 10 L50 30" stroke="#8B5CF6" stroke-width="4" />
+              <circle cx="50" cy="8" r="4" fill="#F59E0B" />
+              <path d="M10 50 Q0 50 0 60" stroke="#22D3EE" stroke-width="4" fill="none" />
+              <path d="M90 50 Q100 50 100 60" stroke="#22D3EE" stroke-width="4" fill="none" />
+          </svg>
+          <h2 style="font-family: 'Orbitron'; font-size: 2rem; color: #22D3EE; margin-bottom: 10px;">AI Tutor Activated!</h2>
+          <p style="font-size: 1.2rem; color: #ddd; margin-bottom: 20px;" id="tutor-msg">Oops! You missed that one. Let's learn it visually!</p>
+          
+          <!-- Animation Stage -->
+          <div class="anim-container" id="tutor-anim-stage">
+              <!-- Visual Storytelling SVGs Injected Here -->
+          </div>
+          
+          <p style="font-size: 1.4rem; font-weight: bold; color: #F59E0B;" id="tutor-explanation">Explanation text goes here.</p>
+          <button class="login-btn" onclick="nextMistake()" style="margin-top: 30px; max-width: 250px; margin: 30px auto 0 auto;">GOT IT! NEXT <i class="fas fa-arrow-right"></i></button>
+      </div>
+  </div>
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  
+  <script>
+    /* ========================================================= 
+                 GALAXY STUDENT LOGIN EXPERIENCE
+       ========================================================= */
+       
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0B0F1A, 0.003); // Deep space fade
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 20, 150);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.appendChild(renderer.domElement);
+
+    // Theme Colors
+    const galaxyColors = {
+      math: 0x3B82F6,     // Neon Blue
+      science: 0x22D3EE,  // Cyan
+      coding: 0x8B5CF6,   // Purple
+      english: 0xEC4899   // Pink
+    };
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+    scene.add(ambientLight);
+    
+    const centerLight = new THREE.PointLight(0x8B5CF6, 2.5, 400);
+    scene.add(centerLight);
+
+    /* --- 1. Immserive Starfield Background --- */
+    const starsGeom = new THREE.BufferGeometry();
+    const starsCount = 4000;
+    const posArray = new Float32Array(starsCount * 3);
+    const colorsArray = new Float32Array(starsCount * 3);
+    const colorObj = new THREE.Color();
+
+    for(let i=0; i < starsCount * 3; i+=3) {
+      // Calculate spherical spread
+      const r = 300 + Math.random() * 900;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      
+      posArray[i] = r * Math.sin(phi) * Math.cos(theta);
+      posArray[i+1] = r * Math.sin(phi) * Math.sin(theta);
+      posArray[i+2] = r * Math.cos(phi);
+
+      // Randomize star colors with glowing blues, purples and whites
+      const rand = Math.random();
+      if(rand > 0.8) colorObj.setHex(0x22D3EE);
+      else if(rand > 0.5) colorObj.setHex(0x8B5CF6);
+      else colorObj.setHex(0xffffff);
+
+      colorsArray[i] = colorObj.r;
+      colorsArray[i+1] = colorObj.g;
+      colorsArray[i+2] = colorObj.b;
+    }
+    
+    starsGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    starsGeom.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+    const starsMat = new THREE.PointsMaterial({ size: 1.5, vertexColors: true, transparent: true, opacity: 0.8 });
+    const starsMesh = new THREE.Points(starsGeom, starsMat);
+    scene.add(starsMesh);
+
+    /* --- Shooting Stars / Particles --- */
+    const shootingGeom = new THREE.BufferGeometry();
+    const shootingPos = new Float32Array(150 * 3); // 50 particles
+    for(let i=0; i<150; i++) shootingPos[i] = (Math.random() - 0.5) * 1200;
+    shootingGeom.setAttribute('position', new THREE.BufferAttribute(shootingPos, 3));
+    const shootingMat = new THREE.PointsMaterial({ size: 3.5, color: 0x22D3EE, transparent: true, blending: THREE.AdditiveBlending });
+    const shootingMesh = new THREE.Points(shootingGeom, shootingMat);
+    scene.add(shootingMesh);
+
+    /* --- 2. Central Portal --- */
+    const portalGroup = new THREE.Group();
+    scene.add(portalGroup);
+
+    // Glowing Torus Knot
+    const portalTorusGeom = new THREE.TorusKnotGeometry(12, 1.5, 150, 20);
+    const portalTorusMat = new THREE.MeshStandardMaterial({ 
+      color: 0x3B82F6, emissive: 0x8B5CF6, emissiveIntensity: 0.6, wireframe: true 
+    });
+    const portalTorus = new THREE.Mesh(portalTorusGeom, portalTorusMat);
+    portalGroup.add(portalTorus);
+
+    // Dark Core
+    const portalCoreGeom = new THREE.SphereGeometry(8, 32, 32);
+    const portalCoreMat = new THREE.MeshBasicMaterial({ color: 0x0B0F1A });
+    const portalCore = new THREE.Mesh(portalCoreGeom, portalCoreMat);
+    portalGroup.add(portalCore);
+    
+    // Additive Aura Glow
+    const portalGlowGeom = new THREE.SphereGeometry(15, 32, 32);
+    const portalGlowMat = new THREE.MeshBasicMaterial({ 
+      color: 0x3B82F6, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending 
+    });
+    const portalGlow = new THREE.Mesh(portalGlowGeom, portalGlowMat);
+    portalGroup.add(portalGlow);
+
+    /* --- 3. Subject Planets --- */
+    const subjects = [
+      { name: "MATHEMATICS", color: galaxyColors.math, dist: 40, speed: 0.005, size: 4, angle: 0 },
+      { name: "SCIENCE", color: galaxyColors.science, dist: 60, speed: 0.003, size: 5, angle: Math.PI / 2 },
+      { name: "CODING", color: galaxyColors.coding, dist: 80, speed: 0.002, size: 6, angle: Math.PI },
+      { name: "ENGLISH", color: galaxyColors.english, dist: 100, speed: 0.0015, size: 4.5, angle: (3 * Math.PI) / 2 }
+    ];
+
+    const planetMeshes = [];
+
+    subjects.forEach((sub, i) => {
+      // Orbit Track Line
+      const pathGeom = new THREE.RingGeometry(sub.dist - 0.2, sub.dist + 0.2, 64);
+      const pathMat = new THREE.MeshBasicMaterial({ color: sub.color, transparent: true, opacity: 0.08, side: THREE.DoubleSide });
+      const path = new THREE.Mesh(pathGeom, pathMat);
+      path.rotation.x = Math.PI / 2;
+      scene.add(path);
+
+      // Planet wrapper to calculate orbit easily
+      const planetObj = new THREE.Object3D();
+      scene.add(planetObj);
+
+      // The Solid Planet Sphere
+      const geom = new THREE.SphereGeometry(sub.size, 64, 64);
+      const mat = new THREE.MeshStandardMaterial({ 
+        color: sub.color, emissive: sub.color, emissiveIntensity: 0.35, roughness: 0.2, metalness: 0.8
+      });
+      const planet = new THREE.Mesh(geom, mat);
+      
+      // Science gets a stylish planetary ring
+      if(i === 1) { 
+        const ringGeom = new THREE.TorusGeometry(sub.size * 1.6, 0.4, 16, 100);
+        const ringMat = new THREE.MeshStandardMaterial({ color: sub.color, emissive: sub.color, emissiveIntensity: 0.3 });
+        const ring = new THREE.Mesh(ringGeom, ringMat);
+        ring.rotation.x = Math.PI/2 - 0.2;
+        planet.add(ring);
+      }
+
+      // Additive Core glowing hull around the planet
+      const glowGeom = new THREE.SphereGeometry(sub.size * 1.35, 32, 32);
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: sub.color, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending
+      });
+      const glow = new THREE.Mesh(glowGeom, glowMat);
+      planet.add(glow);
+
+      planetObj.add(planet);
+
+      planetMeshes.push({ 
+        container: planetObj, 
+        mesh: planet, 
+        glow: glow, 
+        data: sub,
+        baseScale: 1
+      });
+    });
+
+    /* --- 4. Controls & Interactions --- */
+    let time = 0;
+    let isZooming = false;
+    let pointerX = 0;
+    let pointerY = 0;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip');
+    const portalTxt = document.getElementById('portal-text');
+
+    window.addEventListener('mousemove', (e) => {
+      if(isZooming) return;
+      
+      // Calculate normalized coordinates for raycaster (-1 to +1)
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      
+      // Calculate for Parallax effect (-1 to 1 space limits)
+      pointerX = (e.clientX / window.innerWidth) * 2 - 1;
+      pointerY = (e.clientY / window.innerHeight) * 2 - 1;
+
+      // Handle Raycasting for Tooltips
+      raycaster.setFromCamera(mouse, camera);
+      const intersectTargets = planetMeshes.map(p => p.mesh);
+      const intersects = raycaster.intersectObjects(intersectTargets);
+
+      let hovered = false;
+
+      planetMeshes.forEach(p => {
+        if(intersects.length > 0 && intersects[0].object === p.mesh) {
+          hovered = true;
+          // Scale up planet and increase glow
+          gsap.to(p.mesh.scale, { x: 1.3, y: 1.3, z: 1.3, duration: 0.4, ease: "back.out(1.5)" });
+          gsap.to(p.glow.material, { opacity: 0.6, duration: 0.4 });
+          document.body.style.cursor = 'pointer';
+          
+          // Display Tooltip
+          tooltip.style.opacity = 1;
+          tooltip.style.left = (e.clientX) + 'px';
+          tooltip.style.top = (e.clientY - 20) + 'px';
+          tooltip.innerText = p.data.name;
+          tooltip.style.borderColor = '#' + p.data.color.toString(16);
+          tooltip.style.boxShadow = `0 0 20px #${p.data.color.toString(16)}`;
+        } else {
+          // Reset to normal shape
+          gsap.to(p.mesh.scale, { x: 1, y: 1, z: 1, duration: 0.4 });
+          gsap.to(p.glow.material, { opacity: 0.2, duration: 0.4 });
+        }
+      });
+
+      if(!hovered && !isZooming) {
+        document.body.style.cursor = 'default';
+        tooltip.style.opacity = 0;
+      }
+    });
+
+    /* --- 5. Start Zoom Timeline (Login Sequence) --- */
+    portalTxt.addEventListener('click', () => {
+      startZoomSequence();
+    });
+
+    function startZoomSequence() {
+      if(isZooming) return;
+      isZooming = true;
+      document.body.style.cursor = 'default';
+      
+      // Hide frontend text/tooltips
+      tooltip.style.opacity = 0;
+      portalTxt.style.opacity = 0;
+      portalTxt.style.pointerEvents = 'none';
+
+      // GSAP Camera zoom inside portal
+      gsap.to(camera.position, {
+        x: 0, y: 0, z: 12, // Zoom right in front of the core
+        duration: 2.2,
+        ease: "power3.inOut"
+      });
+
+      // Hyper-drive effect: spin portal very fast and increase glow brightness
+      gsap.to(portalTorus.rotation, { y: portalTorus.rotation.y + Math.PI*4, duration: 2.2, ease: "power2.in" });
+      gsap.to(portalGlow.material, { opacity: 0.9, duration: 2 });
+      
+      // Fade out background canvas so modal pops better
+      gsap.to(container, { opacity: 0.25, duration: 2, delay: 0.8 });
+
+      // Bring up Glassmorphism Login Modal centrally
+      setTimeout(() => {
+        document.getElementById('login-modal').classList.add('active');
+      }, 1500);
+    }
+
+    /* Dummy Authentication Logic */
+    function startAuthentication() {
+      const btn = document.getElementById('submit-btn');
+      btn.innerHTML = 'AUTHENTICATING...';
+      btn.style.opacity = '0.8';
+      btn.style.pointerEvents = 'none';
+      
+      // Dummy timer to show redirect to index.html (or dashboard)
+      setTimeout(() => {
+        btn.innerHTML = 'ACCESS GRANTED';
+        btn.style.background = 'linear-gradient(135deg, #22D3EE, #3B82F6)';
+        
+        // Let's redirect to studentindex.html as per common project structure
+        setTimeout(() => {
+          window.location.href = 'studentindex.html';
+        }, 1000);
+      }, 1500);
+    }
+
+    /* --- 6. Render Loop --- */
+    function animate() {
+      requestAnimationFrame(animate);
+      time += 0.01;
+
+      // Slowly rotate massive space background
+      starsMesh.rotation.y = time * 0.05;
+      starsMesh.rotation.x = time * 0.02;
+
+      // Animate shooting stars falling
+      shootingMesh.rotation.z += 0.01;
+      shootingMesh.position.y -= 2.5;
+      if(shootingMesh.position.y < -600) shootingMesh.position.y = 600;
+
+      // Always spin center portal
+      if(!isZooming) {
+        portalTorus.rotation.x += 0.015;
+        portalTorus.rotation.y += 0.025;
+        
+        // Make it organically pulse in size
+        const waveScale = 1 + Math.sin(time * 4) * 0.05;
+        portalGroup.scale.set(waveScale, waveScale, waveScale);
+
+        // Smoothly interpolate Camera Parallax target
+        const targetCamX = pointerX * 25;
+        const targetCamY = pointerY * 15 + 20; // +20 is base height
+        
+        camera.position.x += (targetCamX - camera.position.x) * 0.05;
+        camera.position.y += (targetCamY - camera.position.y) * 0.05;
+        camera.lookAt(0, 0, 0); // Focus strictly central
+      } else {
+        // Keep locked focus during warp speed entry
+        camera.lookAt(0, 0, 0);
+      }
+
+      // Orbital Planet Calculations
+      planetMeshes.forEach(p => {
+        p.data.angle += p.data.speed;
+        p.container.position.x = Math.cos(p.data.angle) * p.data.dist;
+        p.container.position.z = Math.sin(p.data.angle) * p.data.dist;
+        // Natural wobble amplitude up and down using distance and angle
+        p.container.position.y = Math.sin(p.data.angle * 2 + p.data.dist) * 8; 
+        
+        // Spin the mesh naturally
+        p.mesh.rotation.y += 0.01;
+        p.mesh.rotation.x += 0.005;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Auto-resize viewport compliance
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+  </script>
+</body>
+</html>

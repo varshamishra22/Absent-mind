@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absent Mind — AI Student Performance System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            overflow: hidden;
+            background: #050508;
+            font-family: 'Inter', sans-serif;
+            color: #e0e0e0;
+            cursor: default;
+            user-select: none;
+        }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        
+        /* --- Overlay UI --- */
+        #ui-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 10; pointer-events: none;
+        }
+        #ui-overlay > * { pointer-events: auto; }
+
+        /* --- Navigation --- */
+        #top-nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 40px; opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+        #top-nav.visible { opacity: 1; }
+        .nav-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 18px; font-weight: 700; letter-spacing: -0.5px;
+            color: #fff;
+        }
+        .nav-logo span { color: #6c63ff; }
+        .nav-links { display: flex; gap: 32px; }
+        .nav-links a {
+            color: rgba(255,255,255,0.6); text-decoration: none;
+            font-size: 13px; font-weight: 500; letter-spacing: 0.3px;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: #fff; }
+        .nav-back {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: #fff; padding: 8px 20px; border-radius: 8px; font-size: 13px;
+            cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 500;
+            transition: all 0.3s; display: none;
+        }
+        .nav-back:hover { background: rgba(255,255,255,0.12); }
+        .nav-back.visible { display: block; }
+
+        /* --- Landing Text --- */
+        #landing-text {
+            position: fixed; bottom: 80px; left: 60px; z-index: 20;
+            opacity: 0; transition: opacity 0.8s ease;
+        }
+        #landing-text.visible { opacity: 1; }
+        #landing-text .brand {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px; font-weight: 500; letter-spacing: 2px;
+            text-transform: uppercase; color: rgba(255,255,255,0.4);
+            margin-bottom: 12px;
+        }
+        #landing-text h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 48px; font-weight: 700; line-height: 1.1;
+            color: #fff; letter-spacing: -1px; margin-bottom: 20px;
+        }
+        #landing-text .subtitle {
+            font-size: 15px; color: rgba(255,255,255,0.5);
+            line-height: 1.6; max-width: 380px; margin-bottom: 28px;
+        }
+        .explore-tags { display: flex; gap: 10px; }
+        .explore-tags span {
+            padding: 6px 16px; border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.15);
+            font-size: 12px; color: rgba(255,255,255,0.6);
+            cursor: pointer; transition: all 0.3s;
+        }
+        .explore-tags span:hover {
+            border-color: rgba(108,99,255,0.5);
+            color: #fff; background: rgba(108,99,255,0.1);
+        }
+
+        /* --- Click Prompt --- */
+        #click-prompt {
+            position: fixed; bottom: 80px; right: 60px; z-index: 20;
+            opacity: 0; transition: opacity 0.6s ease;
+            text-align: right;
+        }
+        #click-prompt.visible { opacity: 1; }
+        #click-prompt .prompt-text {
+            font-size: 13px; color: rgba(255,255,255,0.4);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        /* --- Login Panel --- */
+        #login-panel {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.8) perspective(1000px) rotateX(15deg);
+            z-index: 50; opacity: 0; pointer-events: none;
+            transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1.1);
+        }
+        #login-panel.visible {
+            opacity: 1; pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1) perspective(1000px) rotateX(0deg);
+        }
+        .login-container {
+            width: 460px; padding: 50px;
+            background: radial-gradient(circle at 0% 0%, rgba(108, 99, 255, 0.15), transparent 50%),
+                        radial-gradient(circle at 100% 100%, rgba(46, 213, 137, 0.08), transparent 50%),
+                        linear-gradient(135deg, rgba(20, 18, 30, 0.8), rgba(5, 5, 12, 0.95));
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid rgba(255,255,255,0.25);
+            border-left: 1px solid rgba(255,255,255,0.15);
+            border-radius: 32px;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.9), inset 0 0 60px rgba(108, 99, 255, 0.08);
+            position: relative;
+        }
+        .login-container::before {
+            content: ''; position: absolute; top: -1px; left: 10%; right: 10%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+            opacity: 0.5;
+        }
+        .login-container h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px; font-weight: 700; margin-bottom: 8px;
+            color: #fff; text-shadow: 0 4px 20px rgba(255,255,255,0.2);
+        }
+        .login-container p {
+            font-size: 15px; color: rgba(255,255,255,0.5);
+            margin-bottom: 36px;
+        }
+        .role-btn {
+            width: 100%; padding: 20px 24px; margin-bottom: 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px; cursor: pointer;
+            display: flex; align-items: center; gap: 20px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative; overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .role-btn::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.08), transparent);
+            opacity: 0; transition: opacity 0.4s;
+        }
+        .role-btn:hover::before { opacity: 1; }
+        .role-btn:hover {
+            border-color: rgba(255,255,255,0.15);
+            transform: translateY(-4px) scale(1.01);
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 20px rgba(255,255,255,0.05);
+        }
+        .role-btn.teacher:hover { border-color: rgba(108,99,255,0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 30px rgba(108,99,255,0.15); }
+        .role-btn.student:hover { border-color: rgba(46,213,137,0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 30px rgba(46,213,137,0.15); }
+        .role-btn.parent:hover { border-color: rgba(255,159,67,0.4); box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 30px rgba(255,159,67,0.15); }
+
+        .role-icon {
+            width: 54px; height: 54px; border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; flex-shrink: 0;
+            box-shadow: inset 0 2px 10px rgba(255,255,255,0.3), 0 8px 16px rgba(0,0,0,0.2);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .role-btn:hover .role-icon { transform: scale(1.1) rotate(5deg); }
+        .role-icon.teacher { background: linear-gradient(135deg, #6c63ff, #483dff); text-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .role-icon.student { background: linear-gradient(135deg, #2ed589, #1cb971); text-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .role-icon.parent { background: linear-gradient(135deg, #ff9f43, #ff7e14); text-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .role-info { text-align: left; }
+        .role-info .role-name {
+            font-size: 17px; font-weight: 600; color: #fff;
+            margin-bottom: 4px; letter-spacing: 0.3px;
+        }
+        .role-info .role-desc {
+            font-size: 13px; color: rgba(255,255,255,0.4);
+            line-height: 1.4;
+        }
+        .role-arrow {
+            margin-left: auto; color: rgba(255,255,255,0.15);
+            font-size: 22px; transition: all 0.4s;
+        }
+        .role-btn:hover .role-arrow { color: #fff; transform: translateX(6px); }
+
+        /* --- Credentials Panel --- */
+        #credentials-panel {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.8) perspective(1000px) rotateX(15deg);
+            z-index: 60; opacity: 0; pointer-events: none;
+            transition: all 0.7s cubic-bezier(0.2, 0.8, 0.2, 1.1);
+        }
+        #credentials-panel.visible {
+            opacity: 1; pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1) perspective(1000px) rotateX(0deg);
+        }
+        .cred-input {
+            width: 100%;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            color: #fff;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+        }
+        .cred-input:focus {
+            outline: none;
+            border-color: rgba(108, 99, 255, 0.6);
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 20px rgba(108, 99, 255, 0.2);
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #6c63ff, #483dff);
+            border: none;
+            border-radius: 16px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 20px rgba(108, 99, 255, 0.3);
+            margin-top: 8px;
+            margin-bottom: 24px;
+        }
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 25px rgba(108, 99, 255, 0.4);
+        }
+        .back-role {
+            text-align: center;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .back-role:hover {
+            color: #fff;
+        }
+
+        .auth-tabs {
+            display: flex; gap: 10px; margin-bottom: 24px;
+            background: rgba(255,255,255,0.05);
+            padding: 6px; border-radius: 16px;
+        }
+        .auth-tab {
+            flex: 1; text-align: center; padding: 10px;
+            font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.5);
+            border-radius: 12px; cursor: pointer; transition: all 0.3s;
+        }
+        .auth-tab.active {
+            background: rgba(108, 99, 255, 0.4);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(108, 99, 255, 0.2);
+        }
+        .auth-tab:hover:not(.active) {
+            color: #fff; background: rgba(255,255,255,0.1);
+        }
+
+        .badge-down { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .badge-neutral { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
+
+        /* --- 3D Loading / Splash Screen --- */
+        #loading-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #020205; z-index: 1000;
+            overflow: hidden;
+            transition: opacity 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #loading-screen.hidden { opacity: 0; pointer-events: none; }
+        #splash-3d-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        }
+
+        /* Overlay UI on top of 3D scene */
+        .splash-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+
+        .splash-glass-card {
+            background: linear-gradient(135deg, rgba(20, 18, 30, 0.5), rgba(5, 5, 12, 0.8));
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 30px;
+            padding: 32px 50px;
+            box-shadow: 
+                0 40px 80px rgba(0,0,0,0.8), 
+                inset 0 0 60px rgba(108, 99, 255, 0.15),
+                0 0 40px rgba(108, 99, 255, 0.2);
+            display: flex; flex-direction: column; align-items: center; gap: 24px;
+            margin-top: 320px;
+            opacity: 0; transform: translateY(60px) scale(0.9);
+            animation: splashCardIn 1.5s cubic-bezier(0.19, 1, 0.22, 1) 2.0s forwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Beautiful Sweeping Light Reflection */
+        .splash-glass-card::before {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+            transform: rotate(45deg) translateY(-100%);
+            animation: glassShine 3.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes glassShine {
+            0% { transform: rotate(45deg) translateY(-100%); }
+            100% { transform: rotate(45deg) translateY(100%); }
+        }
+
+        @keyframes splashCardIn {
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Tagline inside card */
+        .splash-tagline-3d {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px; font-weight: 600; letter-spacing: 5px;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+            animation: pulseText 2.5s ease-in-out infinite alternate;
+        }
+        @keyframes pulseText {
+            from { opacity: 0.7; text-shadow: 0 0 5px rgba(255,255,255,0.2); }
+            to { opacity: 1; text-shadow: 0 0 15px rgba(255,255,255,0.8); }
+        }
+
+        /* Progress inside card */
+        .splash-progress-container {
+            width: 260px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+        }
+        
+        .splash-pbar {
+            width: 100%; height: 4px; border-radius: 4px;
+            background: rgba(255,255,255,0.08); overflow: hidden;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
+            position: relative;
+        }
+        
+        .splash-pfill {
+            width: 0; height: 100%; border-radius: 4px;
+            background: linear-gradient(90deg, #6c63ff, #8b7dff, #38bdf8, #2ed589);
+            background-size: 200% 200%;
+            box-shadow: 0 0 20px rgba(108,99,255,0.8);
+            animation: 
+                splashProgress 2.5s cubic-bezier(0.25, 1, 0.5, 1) 2.6s forwards,
+                shimmerFill 2s linear infinite;
+        }
+        
+        @keyframes shimmerFill {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+        
+        @keyframes splashProgress { to { width: 100%; } }
+        
+        .splash-ptext {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 11px; letter-spacing: 4px; font-weight: 700;
+            color: rgba(255,255,255,0.4);
+        }
+
+        /* Corner version */
+        .splash-ver {
+            position: absolute; bottom: 24px; right: 36px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 10px; color: rgba(255,255,255,0.08); letter-spacing: 1px;
+            z-index: 2;
+            opacity: 0; animation: splashFadeIn 0.5s ease 3s forwards;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Cinematic flash connecting the previous page's zoom */
+        .flash-in {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #fff; z-index: 999999; pointer-events: none;
+            animation: flashOut 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        @keyframes flashOut {
+            0% { opacity: 1; }
+            20% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* Discover Bar */
+        .discover-bar {
+            position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+            z-index: 100; opacity: 0; pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+        .discover-bar.visible { opacity: 1; pointer-events: auto; }
+        .discover-bar-inner {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 16px; border-radius: 24px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(20px);
+        }
+        .discover-bar-inner span {
+            font-size: 12px; color: rgba(255,255,255,0.4);
+        }
+        .discover-bar-inner .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: rgba(108,99,255,0.6);
+            animation: pulse 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="flash-in"></div>
+        <!-- 3D Splash Canvas -->
+        <canvas id="splash-3d-canvas"></canvas>
+
+        <!-- Overlay UI -->
+        <div class="splash-overlay">
+            <div class="splash-glass-card">
+
+                <!-- Progress -->
+                <div class="splash-progress-container">
+                    <div class="splash-pbar"><div class="splash-pfill"></div></div>
+                    <div class="splash-ptext">LOADING EXPERIENCE</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Version -->
+        <div class="splash-ver">v2.0</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-overlay">
+        <!-- Top Nav -->
+        <nav id="top-nav">
+            <div class="nav-logo"><span>◆</span> absent mind</div>
+            <div class="nav-links">
+                <a href="#">Platform</a>
+                <a href="#">Neural</a>
+                <a href="#">Programs</a>
+                <a href="#">Updates</a>
+            </div>
+            <button class="nav-back" id="btn-back" onclick="goBack()">← Back</button>
+        </nav>
+
+        <!-- Discover bar -->
+        <div class="discover-bar" id="discover-bar">
+            <div class="discover-bar-inner">
+                <div class="dot"></div>
+                <span>Discover our AI-powered learning platform</span>
+                <span style="color:rgba(108,99,255,0.6);">→</span>
+            </div>
+        </div>
+
+        <!-- Landing text -->
+        <div id="landing-text">
+            <div class="brand">absent mind</div>
+            <h1>Enhancement of<br>student performance.</h1>
+            <div class="subtitle">AI-powered analytics and adaptive learning, shaping the future of education through intelligent insights.</div>
+            <div class="explore-tags">
+                <span>AI Quiz</span>
+                <span>Analytics</span>
+                <span>Neural</span>
+            </div>
+        </div>
+
+        <!-- Click prompt -->
+        <div id="click-prompt">
+            <div class="prompt-text">Click the book to begin →</div>
+        </div>
+
+        <!-- Login Panel -->
+        <div id="login-panel">
+            <div class="login-container">
+                <h2>Welcome back</h2>
+                <p>Choose your role to continue</p>
+                <div class="role-btn teacher" onclick="selectRole('teacher')">
+                    <div class="role-icon teacher">🎓</div>
+                    <div class="role-info">
+                        <div class="role-name">Teacher</div>
+                        <div class="role-desc">Manage quizzes, track performance</div>
+                    </div>
+                    <div class="role-arrow">→</div>
+                </div>
+                <div class="role-btn student" onclick="selectRole('student')">
+                    <div class="role-icon student">📖</div>
+                    <div class="role-info">
+                        <div class="role-name">Student</div>
+                        <div class="role-desc">Take quizzes, view your progress</div>
+                    </div>
+                    <div class="role-arrow">→</div>
+                </div>
+                <div class="role-btn parent" onclick="selectRole('parent')">
+                    <div class="role-icon parent">👁</div>
+                    <div class="role-info">
+                        <div class="role-name">Parent</div>
+                        <div class="role-desc">Monitor your child's growth</div>
+                    </div>
+                    <div class="role-arrow">→</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Credentials Panel -->
+        <div id="credentials-panel">
+            <div class="login-container">
+                <div class="auth-tabs">
+                    <div class="auth-tab active" onclick="switchAuthMode('login')" id="tab-login">Login</div>
+                    <div class="auth-tab" onclick="switchAuthMode('signup')" id="tab-signup">Sign Up</div>
+                </div>
+                
+                <h2 id="cred-title">Login</h2>
+                <p id="cred-subtitle" style="margin-bottom: 24px; font-size: 14px; color: rgba(255,255,255,0.5);">Welcome back, enter your details</p>
+                
+                <input type="text" id="fullname" placeholder="Full Name" class="cred-input" style="display:none;">
+                <input type="text" id="userid" placeholder="User ID / Email" class="cred-input">
+                <input type="password" id="password" placeholder="Password" class="cred-input">
+                <input type="password" id="confirm-password" placeholder="Confirm Password" class="cred-input" style="display:none;">
+                
+                <button class="submit-btn" id="auth-submit-btn" onclick="submitCredentials()">Login</button>
+                <div class="back-role" onclick="backToRoles()">← Back to Role Selection</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Globals ---
+        let scene, camera, renderer, controls;
+        let book, bookGroup, character, characterGroup;
+        let particles, floatingObjects = [];
+        let mouseX = 0, mouseY = 0;
+        let time = 0;
+        let currentState = 'loading'; // loading, landing, login, dashboard
+        let bookOpened = false;
+        let animatingBook = false;
+
+        // --- Scene Setup ---
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020208, 0.04);
+
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 0.5, 5);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.4);
+        ambientLight.name = 'ambientLight';
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        mainLight.name = 'mainLight';
+        mainLight.position.set(3, 5, 4);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        mainLight.shadow.camera.near = 0.5;
+        mainLight.shadow.camera.far = 20;
+        mainLight.shadow.camera.left = -5;
+        mainLight.shadow.camera.right = 5;
+        mainLight.shadow.camera.top = 5;
+        mainLight.shadow.camera.bottom = -5;
+        mainLight.shadow.bias = -0.001;
+        mainLight.shadow.normalBias = 0.02;
+        scene.add(mainLight);
+
+        const rimLight = new THREE.DirectionalLight(0x6c63ff, 0.8);
+        rimLight.name = 'rimLight';
+        rimLight.position.set(-3, 2, -2);
+        scene.add(rimLight);
+
+        const fillLight = new THREE.PointLight(0x2ed589, 0.5, 15);
+        fillLight.name = 'fillLight';
+        fillLight.position.set(2, -1, 3);
+        scene.add(fillLight);
+
+        // Cursor-following light
+        const cursorLight = new THREE.PointLight(0x8b7dff, 0.6, 10);
+        cursorLight.name = 'cursorLight';
+        cursorLight.position.set(0, 0, 3);
+        scene.add(cursorLight);
+
+        // Character spotlight
+        const charSpotlight = new THREE.SpotLight(0xffffff, 1.5, 12, Math.PI / 6, 0.5, 1);
+        charSpotlight.name = 'charSpotlight';
+        charSpotlight.position.set(3, 3, 3);
+        charSpotlight.target.position.set(1.8, -0.5, 0.5);
+        scene.add(charSpotlight);
+        scene.add(charSpotlight.target);
+
+        // --- Atmospheric Lights ---
+        const atmoLight1 = new THREE.PointLight(0x6c63ff, 1.2, 25);
+        atmoLight1.position.set(-6, 4, -8);
+        scene.add(atmoLight1);
+
+        const atmoLight2 = new THREE.PointLight(0x2ed589, 0.6, 20);
+        atmoLight2.position.set(8, -3, -6);
+        scene.add(atmoLight2);
+
+        const atmoLight3 = new THREE.PointLight(0xff9f43, 0.4, 18);
+        atmoLight3.position.set(-5, -4, -10);
+        scene.add(atmoLight3);
+
+        // --- Create Book ---
+        bookGroup = new THREE.Group();
+        bookGroup.name = 'bookGroup';
+
+        function createBook() {
+            // --- Cover texture via Canvas (leather look) ---
+            const coverCanvas = document.createElement('canvas');
+            coverCanvas.width = 512;
+            coverCanvas.height = 700;
+            const cCtx = coverCanvas.getContext('2d');
+
+            // Base leather color - vibrant purple highlight
+            const leatherGrad = cCtx.createLinearGradient(0, 0, 512, 700);
+            leatherGrad.addColorStop(0, '#2d1f5e');
+            leatherGrad.addColorStop(0.3, '#1e1445');
+            leatherGrad.addColorStop(0.5, '#3a2878');
+            leatherGrad.addColorStop(0.7, '#1e1445');
+            leatherGrad.addColorStop(1, '#2d1f5e');
+            cCtx.fillStyle = leatherGrad;
+            cCtx.fillRect(0, 0, 512, 700);
+
+            // Subtle center glow
+            const centerGlow = cCtx.createRadialGradient(256, 350, 0, 256, 350, 300);
+            centerGlow.addColorStop(0, 'rgba(108, 99, 255, 0.15)');
+            centerGlow.addColorStop(1, 'transparent');
+            cCtx.fillStyle = centerGlow;
+            cCtx.fillRect(0, 0, 512, 700);
+
+            // Leather grain noise
+            for (let i = 0; i < 3000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 700;
+                const a = Math.random() * 0.08;
+                cCtx.fillStyle = `rgba(255,255,255,${a})`;
+                cCtx.fillRect(x, y, 1, 1);
+            }
+
+            // Border frame (bright gold)
+            cCtx.strokeStyle = 'rgba(220,190,110,0.7)';
+            cCtx.lineWidth = 4;
+            cCtx.strokeRect(18, 18, 476, 664);
+            cCtx.strokeStyle = 'rgba(220,190,110,0.4)';
+            cCtx.lineWidth = 1.5;
+            cCtx.strokeRect(30, 30, 452, 640);
+
+            // Corner accents
+            const cornerSize = 30;
+            const corners = [[20, 20], [492 - cornerSize, 20], [20, 680 - cornerSize], [492 - cornerSize, 680 - cornerSize]];
+            cCtx.fillStyle = 'rgba(200,170,100,0.4)';
+            corners.forEach(([cx, cy]) => {
+                cCtx.beginPath();
+                cCtx.moveTo(cx, cy);
+                cCtx.lineTo(cx + cornerSize, cy);
+                cCtx.lineTo(cx, cy + cornerSize);
+                cCtx.closePath();
+                cCtx.fill();
+            });
+
+            const coverTex = new THREE.CanvasTexture(coverCanvas);
+
+            const coverMat = new THREE.MeshStandardMaterial({
+                map: coverTex,
+                emissive: 0x4a3a8a,
+                emissiveIntensity: 0.2,
+                roughness: 0.45,
+                metalness: 0.1,
+            });
+
+            const backCoverMat = new THREE.MeshStandardMaterial({
+                map: coverTex,
+                emissive: 0x3a2a6a,
+                emissiveIntensity: 0.15,
+                roughness: 0.5,
+                metalness: 0.08,
+            });
+
+            // --- Page material with edge lines ---
+            const pageCanvas = document.createElement('canvas');
+            pageCanvas.width = 256;
+            pageCanvas.height = 512;
+            const pCtx = pageCanvas.getContext('2d');
+            pCtx.fillStyle = '#f8f3e8';
+            pCtx.fillRect(0, 0, 256, 512);
+            // Draw visible page lines
+            pCtx.strokeStyle = 'rgba(180,170,150,0.3)';
+            for (let i = 0; i < 60; i++) {
+                const y = 5 + i * (502 / 60);
+                pCtx.lineWidth = 0.5;
+                pCtx.beginPath();
+                pCtx.moveTo(0, y);
+                pCtx.lineTo(256, y);
+                pCtx.stroke();
+            }
+            const pageTex = new THREE.CanvasTexture(pageCanvas);
+
+            const pageMat = new THREE.MeshStandardMaterial({
+                color: 0xf5f0e8,
+                roughness: 0.85,
+                metalness: 0,
+            });
+
+            const pageEdgeMat = new THREE.MeshStandardMaterial({
+                map: pageTex,
+                roughness: 0.8,
+                metalness: 0,
+            });
+
+            const spineMat = new THREE.MeshStandardMaterial({
+                color: 0x1e1445,
+                emissive: 0x2d1f5e,
+                emissiveIntensity: 0.15,
+                roughness: 0.4,
+                metalness: 0.1,
+            });
+
+            // --- Front cover (slightly thicker) ---
+            const frontCover = new THREE.Mesh(
+                new THREE.BoxGeometry(1.6, 2.2, 0.06),
+                coverMat
+            );
+            frontCover.name = 'frontCover';
+            frontCover.castShadow = true;
+            frontCover.position.set(0, 0, 0.2);
+
+            // --- Back cover ---
+            const backCover = new THREE.Mesh(
+                new THREE.BoxGeometry(1.6, 2.2, 0.06),
+                backCoverMat
+            );
+            backCover.name = 'backCover';
+            backCover.castShadow = true;
+            backCover.position.set(0, 0, -0.2);
+
+            // --- Pages block (main) ---
+            const pages = new THREE.Mesh(
+                new THREE.BoxGeometry(1.52, 2.12, 0.34),
+                [pageEdgeMat, pageEdgeMat, pageMat, pageMat, pageMat, pageMat]
+            );
+            pages.name = 'bookPages';
+            pages.position.set(0.02, 0, 0);
+
+            // --- Rounded spine ---
+            const spineGeo = new THREE.CylinderGeometry(0.225, 0.225, 2.2, 16, 1, false, Math.PI, Math.PI);
+            const spine = new THREE.Mesh(spineGeo, spineMat);
+            spine.name = 'bookSpine';
+            spine.position.set(-0.8, 0, 0);
+            spine.rotation.set(0, Math.PI / 2, 0);
+
+            // Spine edge strips (gold detail)
+            const goldMat = new THREE.MeshStandardMaterial({
+                color: 0xc8a850,
+                emissive: 0xc8a850,
+                emissiveIntensity: 0.2,
+                roughness: 0.25,
+                metalness: 0.6,
+            });
+
+            const spineStrip1 = new THREE.Mesh(
+                new THREE.BoxGeometry(0.46, 0.01, 0.06), goldMat
+            );
+            spineStrip1.position.set(-0.8, 1.05, 0);
+
+            const spineStrip2 = new THREE.Mesh(
+                new THREE.BoxGeometry(0.46, 0.01, 0.06), goldMat
+            );
+            spineStrip2.position.set(-0.8, -1.05, 0);
+
+            // --- Title (golden embossed look) ---
+            const titleCanvas = document.createElement('canvas');
+            titleCanvas.width = 512;
+            titleCanvas.height = 256;
+            const tCtx = titleCanvas.getContext('2d');
+
+            // Transparent base
+            tCtx.clearRect(0, 0, 512, 256);
+
+            // Gold text with shadow
+            tCtx.shadowColor = 'rgba(200,168,80,0.6)';
+            tCtx.shadowBlur = 8;
+            tCtx.fillStyle = '#d4b860';
+            tCtx.font = 'bold 48px "Space Grotesk", "Segoe UI", sans-serif';
+            tCtx.textAlign = 'center';
+            tCtx.fillText('ABSENT', 256, 95);
+            tCtx.fillText('MIND', 256, 155);
+
+            tCtx.shadowBlur = 0;
+            tCtx.fillStyle = 'rgba(200,170,100,0.5)';
+            tCtx.font = '18px "Space Grotesk", "Segoe UI", sans-serif';
+            tCtx.fillText('AI Student Performance', 256, 205);
+
+            // Decorative line under subtitle
+            tCtx.strokeStyle = 'rgba(200,170,100,0.4)';
+            tCtx.lineWidth = 1.5;
+            tCtx.beginPath();
+            tCtx.moveTo(140, 220);
+            tCtx.lineTo(372, 220);
+            tCtx.stroke();
+
+            const titleTexture = new THREE.CanvasTexture(titleCanvas);
+            const titleMat = new THREE.MeshStandardMaterial({
+                map: titleTexture,
+                transparent: true,
+                emissive: 0xc8a850,
+                emissiveIntensity: 0.15,
+                roughness: 0.3,
+                metalness: 0.4,
+            });
+            const titlePlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.4, 0.7),
+                titleMat
+            );
+            titlePlane.name = 'titlePlane';
+            titlePlane.position.set(0, 0.15, 0.231);
+
+            // --- Decorative border on front cover ---
+            const borderMat = new THREE.MeshStandardMaterial({
+                color: 0xc8a850,
+                emissive: 0xc8a850,
+                emissiveIntensity: 0.15,
+                roughness: 0.3,
+                metalness: 0.5,
+            });
+
+            // Top border line
+            const borderTop = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.01, 0.002), borderMat);
+            borderTop.position.set(0, 0.95, 0.231);
+
+            // Bottom border line
+            const borderBot = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.01, 0.002), borderMat);
+            borderBot.position.set(0, -0.95, 0.231);
+
+            // Left border line
+            const borderLeft = new THREE.Mesh(new THREE.BoxGeometry(0.01, 1.9, 0.002), borderMat);
+            borderLeft.position.set(-0.65, 0, 0.231);
+
+            // Right border line
+            const borderRight = new THREE.Mesh(new THREE.BoxGeometry(0.01, 1.9, 0.002), borderMat);
+            borderRight.position.set(0.65, 0, 0.231);
+
+            // --- Corner pieces (3D gold corners) ---
+            const cornerGeo = new THREE.BoxGeometry(0.08, 0.08, 0.015);
+            const c1 = new THREE.Mesh(cornerGeo, goldMat);
+            c1.position.set(-0.65, 0.95, 0.232); c1.rotation.z = Math.PI / 4;
+            const c2 = new THREE.Mesh(cornerGeo, goldMat);
+            c2.position.set(0.65, 0.95, 0.232); c2.rotation.z = Math.PI / 4;
+            const c3 = new THREE.Mesh(cornerGeo, goldMat);
+            c3.position.set(-0.65, -0.95, 0.232); c3.rotation.z = Math.PI / 4;
+            const c4 = new THREE.Mesh(cornerGeo, goldMat);
+            c4.position.set(0.65, -0.95, 0.232); c4.rotation.z = Math.PI / 4;
+
+            // --- Emblem (ornate diamond) ---
+            const emblemGeo = new THREE.OctahedronGeometry(0.1, 0);
+            const emblem = new THREE.Mesh(emblemGeo, goldMat);
+            emblem.name = 'emblem';
+            emblem.position.set(0, 0.7, 0.232);
+            emblem.rotation.z = Math.PI / 4;
+
+            // Emblem ring
+            const emblemRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.14, 0.008, 8, 24),
+                goldMat
+            );
+            emblemRing.position.set(0, 0.7, 0.232);
+
+            // --- Bookmark ribbon ---
+            const ribbonMat = new THREE.MeshStandardMaterial({
+                color: 0x8b2252,
+                emissive: 0x8b2252,
+                emissiveIntensity: 0.1,
+                roughness: 0.5,
+                metalness: 0.05,
+                side: THREE.DoubleSide,
+            });
+            const ribbon = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.04, 0.6),
+                ribbonMat
+            );
+            ribbon.name = 'bookRibbon';
+            ribbon.position.set(0.3, -1.35, 0.05);
+            ribbon.rotation.x = 0.15;
+
+            bookGroup.add(
+                frontCover, backCover, pages, spine,
+                spineStrip1, spineStrip2,
+                titlePlane,
+                borderTop, borderBot, borderLeft, borderRight,
+                c1, c2, c3, c4,
+                emblem, emblemRing,
+                ribbon
+            );
+            
+            // Book starts above viewport
+            bookGroup.position.set(0.5, 8, 0);
+            bookGroup.rotation.set(0.1, -0.2, 0.05);
+            scene.add(bookGroup);
+        }
+
+        // --- Create Character (Stylized 3D Boy) ---
+        characterGroup = new THREE.Group();
+        characterGroup.name = 'characterGroup';
+
+        function createCharacter() {
+            const skinMat = new THREE.MeshStandardMaterial({
+                color: 0xf0c8a0,
+                emissive: 0xf0c8a0,
+                emissiveIntensity: 0.1,
+                roughness: 0.6,
+                metalness: 0,
+            });
+            const darkMat = new THREE.MeshStandardMaterial({
+                color: 0x2a2a4e,
+                emissive: 0x2a2a4e,
+                emissiveIntensity: 0.05,
+                roughness: 0.5,
+                metalness: 0.1,
+            });
+            const accentMat = new THREE.MeshStandardMaterial({
+                color: 0x8b7dff,
+                emissive: 0x8b7dff,
+                emissiveIntensity: 0.4,
+                roughness: 0.3,
+                metalness: 0.2,
+            });
+            const shirtMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                emissive: 0x38bdf8,
+                emissiveIntensity: 0.15,
+                roughness: 0.5,
+                metalness: 0.05,
+            });
+
+            // Head
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 32, 32), skinMat);
+            head.name = 'charHead';
+            head.position.set(0, 1.55, 0);
+            head.castShadow = true;
+
+            // Hair
+            const hair = new THREE.Mesh(
+                new THREE.SphereGeometry(0.3, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6),
+                darkMat
+            );
+            hair.name = 'charHair';
+            hair.position.set(0, 1.6, -0.02);
+            hair.castShadow = true;
+
+            // Eyes — big and detailed with eyeball, iris, pupil, highlight
+            // Eyeball (white, large)
+            const eyeGeo = new THREE.SphereGeometry(0.08, 24, 24);
+            const eyeMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff, roughness: 0.1, metalness: 0.05,
+                emissive: 0xffffff, emissiveIntensity: 0.15
+            });
+
+            const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+            leftEye.name = 'charLeftEye';
+            leftEye.position.set(-0.1, 1.56, 0.22);
+            leftEye.scale.set(1, 1, 0.6);
+            const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+            rightEye.name = 'charRightEye';
+            rightEye.position.set(0.1, 1.56, 0.22);
+            rightEye.scale.set(1, 1, 0.6);
+
+            // Iris (bright blue, large)
+            const irisGeo = new THREE.SphereGeometry(0.05, 20, 20);
+            const irisMat = new THREE.MeshStandardMaterial({
+                color: 0x2196f3, emissive: 0x2196f3, emissiveIntensity: 0.5,
+                roughness: 0.2, metalness: 0.1
+            });
+            const leftIris = new THREE.Mesh(irisGeo, irisMat);
+            leftIris.name = 'charLeftIris';
+            leftIris.position.set(-0.1, 1.56, 0.27);
+            leftIris.scale.set(1, 1, 0.4);
+            const rightIris = new THREE.Mesh(irisGeo, irisMat.clone());
+            rightIris.name = 'charRightIris';
+            rightIris.position.set(0.1, 1.56, 0.27);
+            rightIris.scale.set(1, 1, 0.4);
+
+            // Pupil (dark center, visible)
+            const pupilGeo = new THREE.SphereGeometry(0.025, 16, 16);
+            const pupilMat = new THREE.MeshStandardMaterial({
+                color: 0x050510, roughness: 0.1, metalness: 0.2
+            });
+            const leftPupil = new THREE.Mesh(pupilGeo, pupilMat);
+            leftPupil.name = 'charLeftPupil';
+            leftPupil.position.set(-0.1, 1.56, 0.29);
+            leftPupil.scale.set(1, 1, 0.3);
+            const rightPupil = new THREE.Mesh(pupilGeo, pupilMat.clone());
+            rightPupil.name = 'charRightPupil';
+            rightPupil.position.set(0.1, 1.56, 0.29);
+            rightPupil.scale.set(1, 1, 0.3);
+
+            // Eye highlight (bright white reflection)
+            const highlightGeo = new THREE.SphereGeometry(0.012, 8, 8);
+            const highlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const leftHighlight = new THREE.Mesh(highlightGeo, highlightMat);
+            leftHighlight.name = 'charLeftHighlight';
+            leftHighlight.position.set(-0.085, 1.58, 0.295);
+            const rightHighlight = new THREE.Mesh(highlightGeo, highlightMat);
+            rightHighlight.name = 'charRightHighlight';
+            rightHighlight.position.set(0.115, 1.58, 0.295);
+
+            // Eyebrows
+            const browGeo = new THREE.BoxGeometry(0.07, 0.012, 0.015);
+            const browMat = new THREE.MeshStandardMaterial({
+                color: 0x1a1a30, roughness: 0.5, metalness: 0.1
+            });
+            const leftBrow = new THREE.Mesh(browGeo, browMat);
+            leftBrow.name = 'charLeftBrow';
+            leftBrow.position.set(-0.1, 1.62, 0.22);
+            leftBrow.rotation.z = -0.1;
+            const rightBrow = new THREE.Mesh(browGeo, browMat);
+            rightBrow.name = 'charRightBrow';
+            rightBrow.position.set(0.1, 1.62, 0.22);
+            rightBrow.rotation.z = 0.1;
+
+            // Nose
+            const noseGeo = new THREE.SphereGeometry(0.025, 10, 10);
+            const nose = new THREE.Mesh(noseGeo, skinMat);
+            nose.name = 'charNose';
+            nose.position.set(0, 1.5, 0.27);
+            nose.scale.set(0.7, 0.8, 1);
+
+            // Mouth
+            const mouthGeo = new THREE.TorusGeometry(0.04, 0.008, 8, 12, Math.PI);
+            const mouthMat = new THREE.MeshStandardMaterial({
+                color: 0xd4886a, roughness: 0.6, metalness: 0
+            });
+            const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+            mouth.name = 'charMouth';
+            mouth.position.set(0, 1.44, 0.24);
+            mouth.rotation.x = 0.2;
+            mouth.rotation.z = Math.PI;
+
+            // Body (torso)
+            const torso = new THREE.Mesh(
+                new THREE.CapsuleGeometry(0.22, 0.5, 8, 16),
+                shirtMat
+            );
+            torso.name = 'charTorso';
+            torso.position.set(0, 1.0, 0);
+            torso.castShadow = true;
+
+            // Collar / accent stripe
+            const collar = new THREE.Mesh(
+                new THREE.TorusGeometry(0.22, 0.02, 8, 16),
+                accentMat
+            );
+            collar.name = 'charCollar';
+            collar.position.set(0, 1.27, 0);
+            collar.rotation.x = Math.PI / 2;
+
+            // Arms
+            const armGeo = new THREE.CapsuleGeometry(0.07, 0.4, 6, 12);
+            const leftArm = new THREE.Mesh(armGeo, shirtMat);
+            leftArm.name = 'charLeftArm';
+            leftArm.position.set(-0.32, 1.0, 0);
+            leftArm.rotation.z = 0.15;
+            leftArm.castShadow = true;
+
+            const rightArm = new THREE.Mesh(armGeo, shirtMat);
+            rightArm.name = 'charRightArm';
+            rightArm.position.set(0.32, 1.0, 0);
+            rightArm.rotation.z = -0.15;
+            rightArm.castShadow = true;
+
+            // Hands
+            const handGeo = new THREE.SphereGeometry(0.06, 12, 12);
+            const leftHand = new THREE.Mesh(handGeo, skinMat);
+            leftHand.name = 'charLeftHand';
+            leftHand.position.set(-0.36, 0.72, 0);
+            const rightHand = new THREE.Mesh(handGeo, skinMat);
+            rightHand.name = 'charRightHand';
+            rightHand.position.set(0.36, 0.72, 0);
+
+            // Legs
+            const legGeo = new THREE.CapsuleGeometry(0.09, 0.5, 6, 12);
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x4a4a7a, emissive: 0x4a4a7a, emissiveIntensity: 0.05, roughness: 0.6 });
+            const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+            leftLeg.name = 'charLeftLeg';
+            leftLeg.position.set(-0.12, 0.4, 0);
+            leftLeg.castShadow = true;
+            const rightLeg = new THREE.Mesh(legGeo, pantsMat);
+            rightLeg.name = 'charRightLeg';
+            rightLeg.position.set(0.12, 0.4, 0);
+            rightLeg.castShadow = true;
+
+            // Shoes
+            const shoeGeo = new THREE.BoxGeometry(0.12, 0.06, 0.18);
+            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x3a3a5e, emissive: 0x3a3a5e, emissiveIntensity: 0.05, roughness: 0.4, metalness: 0.1 });
+            const leftShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            leftShoe.name = 'charLeftShoe';
+            leftShoe.position.set(-0.12, 0.1, 0.03);
+            const rightShoe = new THREE.Mesh(shoeGeo, shoeMat);
+            rightShoe.name = 'charRightShoe';
+            rightShoe.position.set(0.12, 0.1, 0.03);
+
+            // Backpack strap accent
+            const strapGeo = new THREE.BoxGeometry(0.03, 0.4, 0.03);
+            const leftStrap = new THREE.Mesh(strapGeo, accentMat);
+            leftStrap.name = 'charLeftStrap';
+            leftStrap.position.set(-0.15, 1.1, -0.22);
+            const rightStrap = new THREE.Mesh(strapGeo, accentMat);
+            rightStrap.name = 'charRightStrap';
+            rightStrap.position.set(0.15, 1.1, -0.22);
+
+            // Small backpack
+            const backpack = new THREE.Mesh(
+                new THREE.BoxGeometry(0.3, 0.35, 0.12),
+                darkMat
+            );
+            backpack.name = 'charBackpack';
+            backpack.position.set(0, 0.95, -0.28);
+
+            characterGroup.add(
+                head, hair,
+                leftEye, rightEye, leftIris, rightIris,
+                leftPupil, rightPupil, leftHighlight, rightHighlight,
+                leftBrow, rightBrow, nose, mouth,
+                torso, collar, leftArm, rightArm, leftHand, rightHand,
+                leftLeg, rightLeg, leftShoe, rightShoe,
+                leftStrap, rightStrap, backpack
+            );
+
+            characterGroup.position.set(1.8, -1.2, 0.5);
+            characterGroup.scale.set(0.9, 0.9, 0.9);
+            characterGroup.visible = false;
+            scene.add(characterGroup);
+        }
+
+        // --- Starfield Particles ---
+        function createParticles() {
+            const count = 2000;
+            const geo = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            for (let i = 0; i < count; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 50;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 50;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 50 - 5;
+
+                const c = new THREE.Color();
+                const hueChoice = Math.random();
+                if (hueChoice < 0.5) c.setHSL(0.68 + Math.random() * 0.12, 0.5 + Math.random() * 0.3, 0.6 + Math.random() * 0.4);
+                else if (hueChoice < 0.75) c.setHSL(0.42 + Math.random() * 0.05, 0.5, 0.6 + Math.random() * 0.3);
+                else c.setHSL(0.08 + Math.random() * 0.04, 0.6, 0.6 + Math.random() * 0.3);
+                colors[i * 3] = c.r;
+                colors[i * 3 + 1] = c.g;
+                colors[i * 3 + 2] = c.b;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.05,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.7,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+            });
+
+            particles = new THREE.Points(geo, mat);
+            particles.name = 'particles';
+            scene.add(particles);
+        }
+
+        // --- Floating Objects (books, formulas, screens) ---
+        function createFloatingObjects() {
+            const colors = [0x6c63ff, 0x2ed589, 0xff9f43, 0x38bdf8, 0xec4899];
+
+            for (let i = 0; i < 16; i++) {
+                const col = colors[i % colors.length];
+                const mat = new THREE.MeshStandardMaterial({
+                    color: col,
+                    emissive: col,
+                    emissiveIntensity: 0.2,
+                    roughness: 0.4,
+                    metalness: 0.15,
+                    transparent: true,
+                    opacity: 0.25,
+                });
+
+                let geo;
+                const type = i % 5;
+                if (type === 0) geo = new THREE.BoxGeometry(0.3, 0.4, 0.06);
+                else if (type === 1) geo = new THREE.OctahedronGeometry(0.12, 0);
+                else if (type === 2) geo = new THREE.TetrahedronGeometry(0.12, 0);
+                else if (type === 3) geo = new THREE.TorusGeometry(0.1, 0.03, 8, 16);
+                else geo = new THREE.IcosahedronGeometry(0.1, 0);
+
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.name = `floatingObj_${i}`;
+
+                const angle = (i / 16) * Math.PI * 2;
+                const radius = 3 + Math.random() * 5;
+                mesh.position.set(
+                    Math.cos(angle) * radius,
+                    (Math.random() - 0.5) * 6,
+                    Math.sin(angle) * radius - 3
+                );
+                mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                mesh.userData = {
+                    speed: 0.2 + Math.random() * 0.5,
+                    amplitude: 0.3 + Math.random() * 0.5,
+                    phase: Math.random() * Math.PI * 2,
+                    rotSpeed: (Math.random() - 0.5) * 0.02,
+                };
+
+                scene.add(mesh);
+                floatingObjects.push(mesh);
+            }
+        }
+
+        // --- Ground: Glowing Grid Floor ---
+        function createGround() {
+            // Dark ground base
+            const groundGeo = new THREE.PlaneGeometry(40, 40);
+            const groundMat = new THREE.MeshStandardMaterial({
+                color: 0x040410,
+                roughness: 0.6,
+                metalness: 0.3,
+                transparent: true,
+                opacity: 0.7,
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.name = 'ground';
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -1.5;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Grid lines
+            const gridCanvas = document.createElement('canvas');
+            gridCanvas.width = 1024;
+            gridCanvas.height = 1024;
+            const gCtx = gridCanvas.getContext('2d');
+            gCtx.clearRect(0, 0, 1024, 1024);
+            gCtx.strokeStyle = 'rgba(108, 99, 255, 0.12)';
+            gCtx.lineWidth = 1;
+            const gridStep = 32;
+            for (let x = 0; x <= 1024; x += gridStep) {
+                gCtx.beginPath(); gCtx.moveTo(x, 0); gCtx.lineTo(x, 1024); gCtx.stroke();
+            }
+            for (let y = 0; y <= 1024; y += gridStep) {
+                gCtx.beginPath(); gCtx.moveTo(0, y); gCtx.lineTo(1024, y); gCtx.stroke();
+            }
+            // Center glow
+            const grd = gCtx.createRadialGradient(512, 512, 0, 512, 512, 400);
+            grd.addColorStop(0, 'rgba(108, 99, 255, 0.08)');
+            grd.addColorStop(1, 'transparent');
+            gCtx.fillStyle = grd;
+            gCtx.fillRect(0, 0, 1024, 1024);
+
+            const gridTex = new THREE.CanvasTexture(gridCanvas);
+            gridTex.wrapS = THREE.RepeatWrapping;
+            gridTex.wrapT = THREE.RepeatWrapping;
+
+            const gridPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(40, 40),
+                new THREE.MeshBasicMaterial({
+                    map: gridTex, transparent: true, opacity: 0.6,
+                    blending: THREE.AdditiveBlending, depthWrite: false,
+                    side: THREE.DoubleSide
+                })
+            );
+            gridPlane.name = 'gridFloor';
+            gridPlane.rotation.x = -Math.PI / 2;
+            gridPlane.position.y = -1.49;
+            scene.add(gridPlane);
+        }
+
+        // --- Nebula Clouds ---
+        let nebulaClouds = [];
+        function createNebula() {
+            const nebulaData = [
+                { pos: [-8, 3, -15], color: 0x6c63ff, scale: 6, opacity: 0.04 },
+                { pos: [10, -2, -18], color: 0x2ed589, scale: 5, opacity: 0.03 },
+                { pos: [-5, -5, -12], color: 0xff9f43, scale: 4, opacity: 0.025 },
+                { pos: [6, 6, -20], color: 0x8b7dff, scale: 7, opacity: 0.035 },
+                { pos: [-12, 0, -14], color: 0xec4899, scale: 4.5, opacity: 0.02 },
+                { pos: [0, -4, -22], color: 0x38bdf8, scale: 5.5, opacity: 0.03 },
+            ];
+
+            nebulaData.forEach((nd, i) => {
+                const nebGeo = new THREE.SphereGeometry(nd.scale, 16, 16);
+                const nebMat = new THREE.MeshBasicMaterial({
+                    color: nd.color, transparent: true, opacity: nd.opacity,
+                    blending: THREE.AdditiveBlending, depthWrite: false,
+                    side: THREE.BackSide
+                });
+                const nebula = new THREE.Mesh(nebGeo, nebMat);
+                nebula.position.set(...nd.pos);
+                nebula.userData = { baseOpacity: nd.opacity, pulseSpeed: 0.3 + Math.random() * 0.5, phase: Math.random() * Math.PI * 2 };
+                scene.add(nebula);
+                nebulaClouds.push(nebula);
+            });
+        }
+
+        // --- Energy Rings ---
+        let energyRings = [];
+        function createEnergyRings() {
+            const ringData = [
+                { radius: 6, tube: 0.008, color: 0x6c63ff, opacity: 0.08, rotX: 0.3, rotY: 0, y: -1, speed: 0.15 },
+                { radius: 8, tube: 0.006, color: 0x2ed589, opacity: 0.05, rotX: 0.8, rotY: 0.4, y: 0, speed: -0.1 },
+                { radius: 10, tube: 0.005, color: 0x8b7dff, opacity: 0.04, rotX: 1.2, rotY: 0.8, y: 1, speed: 0.08 },
+            ];
+
+            ringData.forEach(rd => {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(rd.radius, rd.tube, 8, 120),
+                    new THREE.MeshBasicMaterial({
+                        color: rd.color, transparent: true, opacity: rd.opacity,
+                        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+                    })
+                );
+                ring.rotation.x = rd.rotX;
+                ring.rotation.y = rd.rotY;
+                ring.position.y = rd.y;
+                ring.userData = { speed: rd.speed };
+                scene.add(ring);
+                energyRings.push(ring);
+            });
+        }
+        // --- 3D Holographic Background Panels ---
+        let holoPanels = [];
+        function createHoloPanels() {
+            const panelData = [
+                { pos: [-4.5, 2.5, -6], rot: [0, 0.3, 0], size: [2, 1.3], color: '#6c63ff', icon: '🧠', text: 'AI ANALYTICS', parallax: 0.15 },
+                { pos: [4, 3, -8], rot: [0, -0.2, 0.05], size: [1.8, 1.2], color: '#2ed589', icon: '📊', text: 'PERFORMANCE', parallax: 0.12 },
+                { pos: [-5.5, -1, -7], rot: [0, 0.15, -0.05], size: [1.5, 1], color: '#38bdf8', icon: '💻', text: 'SMART LEARNING', parallax: 0.18 },
+                { pos: [5, -0.5, -5], rot: [0, -0.25, 0.03], size: [1.6, 1.1], color: '#ec4899', icon: '🎯', text: 'TRACK GOALS', parallax: 0.14 },
+                { pos: [-3, 4, -10], rot: [0.1, 0.1, 0], size: [1.4, 0.9], color: '#ff9f43', icon: '📚', text: 'STUDY HUB', parallax: 0.1 },
+                { pos: [3, -3, -9], rot: [-0.05, -0.15, 0], size: [1.7, 1.15], color: '#8b7dff', icon: '⚡', text: 'REAL-TIME', parallax: 0.16 },
+            ];
+
+            panelData.forEach((pd, i) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 340;
+                const ctx = canvas.getContext('2d');
+
+                // Background with border
+                ctx.fillStyle = 'rgba(10, 10, 25, 0.3)';
+                ctx.beginPath();
+                ctx.roundRect(8, 8, 496, 324, 16);
+                ctx.fill();
+
+                // Glowing border
+                ctx.strokeStyle = pd.color;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = pd.color;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.roundRect(8, 8, 496, 324, 16);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Icon
+                ctx.font = '64px serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(pd.icon, 256, 140);
+
+                // Text
+                ctx.font = '600 28px "Space Grotesk", sans-serif';
+                ctx.fillStyle = pd.color;
+                ctx.shadowColor = pd.color;
+                ctx.shadowBlur = 10;
+                ctx.fillText(pd.text, 256, 220);
+                ctx.shadowBlur = 0;
+
+                // Data lines
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                for (let j = 0; j < 3; j++) {
+                    ctx.beginPath();
+                    ctx.roundRect(100, 250 + j * 22, 312, 8, 4);
+                    ctx.fill();
+                    // Fill portion
+                    ctx.fillStyle = pd.color + '40';
+                    ctx.beginPath();
+                    ctx.roundRect(100, 250 + j * 22, (200 + Math.random() * 112), 8, 4);
+                    ctx.fill();
+                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                }
+
+                const tex = new THREE.CanvasTexture(canvas);
+                const panelGeo = new THREE.PlaneGeometry(pd.size[0], pd.size[1]);
+                const panelMat = new THREE.MeshBasicMaterial({
+                    map: tex, transparent: true, opacity: 0.4,
+                    blending: THREE.AdditiveBlending, depthWrite: false,
+                    side: THREE.DoubleSide
+                });
+                const panel = new THREE.Mesh(panelGeo, panelMat);
+                panel.position.set(...pd.pos);
+                panel.rotation.set(...pd.rot);
+                panel.userData = {
+                    basePos: [...pd.pos],
+                    parallax: pd.parallax,
+                    floatSpeed: 0.3 + Math.random() * 0.4,
+                    floatPhase: Math.random() * Math.PI * 2,
+                };
+                scene.add(panel);
+                holoPanels.push(panel);
+            });
+        }
+
+        // --- Initialize ---
+        createBook();
+        createCharacter();
+        createParticles();
+        createFloatingObjects();
+        createGround();
+        createNebula();
+        createEnergyRings();
+        createHoloPanels();
+
+        // --- Raycaster for interaction ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // --- Mouse tracking ---
+        window.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+            mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // --- Click handler ---
+        window.addEventListener('click', (e) => {
+            if (currentState === 'landing' && !bookOpened && !animatingBook) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(bookGroup.children, true);
+                if (intersects.length > 0) {
+                    openBook();
+                }
+            }
+        });
+
+        // --- Book fall animation ---
+        function animateBookFall() {
+            const startY = 8;
+            const endY = 0.3;
+            const duration = 1800;
+            const startTime = performance.now();
+
+            function fall(now) {
+                const elapsed = now - startTime;
+                const t = Math.min(elapsed / duration, 1);
+                // Bounce easing
+                const ease = t < 0.5
+                    ? 4 * t * t * t
+                    : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+                bookGroup.position.y = startY + (endY - startY) * ease;
+                bookGroup.rotation.x = 0.1 * (1 - ease);
+                bookGroup.rotation.z = 0.05 * (1 - ease);
+
+                if (t < 1) {
+                    requestAnimationFrame(fall);
+                } else {
+                    bookGroup.position.y = endY;
+                    currentState = 'landing';
+                    // Show character
+                    characterGroup.visible = true;
+                    animateCharacterEntrance();
+                    // Show UI
+                    document.getElementById('top-nav').classList.add('visible');
+                    document.getElementById('discover-bar').classList.add('visible');
+                    document.getElementById('landing-text').classList.add('visible');
+                    document.getElementById('click-prompt').classList.add('visible');
+                }
+            }
+            requestAnimationFrame(fall);
+        }
+
+        // --- Character entrance ---
+        function animateCharacterEntrance() {
+            const startX = 3.5;
+            const endX = 1.8;
+            const duration = 1200;
+            const startTime = performance.now();
+            characterGroup.position.x = startX;
+
+            function enter(now) {
+                const elapsed = now - startTime;
+                const t = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - t, 3);
+                characterGroup.position.x = startX + (endX - startX) * ease;
+
+                // Walking bob
+                if (t < 1) {
+                    characterGroup.position.y = -1.2 + Math.abs(Math.sin(t * Math.PI * 6)) * 0.05;
+                    requestAnimationFrame(enter);
+                } else {
+                    characterGroup.position.y = -1.2;
+                    // Start waving hello
+                    animateWaveHello();
+                }
+            }
+            requestAnimationFrame(enter);
+        }
+
+        // --- Wave Hello Animation (LEFT arm — visible to viewer) ---
+        function animateWaveHello() {
+            const lArm = characterGroup.getObjectByName('charLeftArm');
+            const lHand = characterGroup.getObjectByName('charLeftHand');
+            if (!lArm) return;
+
+            const origZ = lArm.rotation.z; // 0.15
+            const origX = lArm.rotation.x || 0;
+            const totalDuration = 2500;
+            const startTime = performance.now();
+
+            function waveFrame(now) {
+                const elapsed = now - startTime;
+                const t = elapsed / totalDuration;
+
+                if (t >= 1) {
+                    // Reset to original
+                    lArm.rotation.z = origZ;
+                    lArm.rotation.x = origX;
+                    if (lHand) {
+                        lHand.position.set(-0.36, 0.72, 0);
+                    }
+                    return;
+                }
+
+                // Envelope: arm raises then lowers
+                let envelope;
+                if (t < 0.15) {
+                    envelope = t / 0.15; // raise up
+                } else if (t > 0.85) {
+                    envelope = (1 - t) / 0.15; // lower down
+                } else {
+                    envelope = 1; // fully up
+                }
+                envelope = Math.sin(envelope * Math.PI / 2); // smooth
+
+                // Arm raised angle
+                const raiseAngle = 1.4 * envelope;
+                lArm.rotation.z = origZ + raiseAngle;
+
+                // Wave oscillation (only when arm is up)
+                const waveFreq = 8;
+                const waveAmp = 0.35 * envelope;
+                lArm.rotation.x = origX + Math.sin(t * waveFreq * Math.PI) * waveAmp;
+
+                // Hand follows
+                if (lHand) {
+                    lHand.position.x = -0.36 - envelope * 0.2;
+                    lHand.position.y = 0.72 + envelope * 0.5;
+                }
+
+                requestAnimationFrame(waveFrame);
+            }
+            requestAnimationFrame(waveFrame);
+        }
+
+        // --- Open book -> show login ---
+        function openBook() {
+            if (animatingBook) return;
+            animatingBook = true;
+            bookOpened = true;
+
+            document.getElementById('click-prompt').classList.remove('visible');
+            document.getElementById('landing-text').classList.remove('visible');
+            document.getElementById('discover-bar').classList.remove('visible');
+
+            // Animate character walking toward book
+            const charStartX = characterGroup.position.x;
+            const charEndX = 0.3;
+            const duration = 1000;
+            const startTime = performance.now();
+
+            function walkToBook(now) {
+                const elapsed = now - startTime;
+                const t = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - t, 3);
+                characterGroup.position.x = charStartX + (charEndX - charStartX) * ease;
+                characterGroup.position.y = -1.2 + Math.abs(Math.sin(t * Math.PI * 6)) * 0.04;
+
+                if (t < 1) {
+                    requestAnimationFrame(walkToBook);
+                } else {
+                    // Character raises arm
+                    const rArm = characterGroup.getObjectByName('charRightArm');
+                    if (rArm) {
+                        const armStart = rArm.rotation.z;
+                        const armEnd = -1.2;
+                        const armDuration = 500;
+                        const armStartTime = performance.now();
+
+                        function raiseArm(now2) {
+                            const e = now2 - armStartTime;
+                            const t2 = Math.min(e / armDuration, 1);
+                            rArm.rotation.z = armStart + (armEnd - armStart) * t2;
+                            if (t2 < 1) requestAnimationFrame(raiseArm);
+                            else {
+                                // Open book cover
+                                animateBookOpen();
+                            }
+                        }
+                        requestAnimationFrame(raiseArm);
+                    }
+                }
+            }
+            requestAnimationFrame(walkToBook);
+        }
+
+        function animateBookOpen() {
+            const frontCover = bookGroup.getObjectByName('frontCover');
+            const titlePlane = bookGroup.getObjectByName('titlePlane');
+            const emblem = bookGroup.getObjectByName('emblem');
+            const bookPages = bookGroup.getObjectByName('bookPages');
+
+            // Set up magical book glow
+            const bookGlow = new THREE.PointLight(0x8b7dff, 0, 15);
+            bookGlow.position.set(0, 0, 0.3);
+            bookGroup.add(bookGlow);
+
+            // Dramatic duration for 3D dive
+            const duration = 1800;
+            const startTime = performance.now();
+            const startPos = bookGroup.position.clone();
+            const startRot = bookGroup.rotation.clone();
+            const startCamZ = camera.position.z;
+            const startCamY = camera.position.y;
+
+            // Prepare the login panel to burst out
+            const loginPanel = document.getElementById('login-panel');
+            loginPanel.style.transform = 'translate(-50%, -50%) scale(0.1) perspective(1000px) rotateX(60deg) translateY(200px)';
+            loginPanel.style.transition = 'none'; // Disable hover transitions while animating
+
+            function openAnim(now) {
+                const elapsed = now - startTime;
+                const t = Math.min(elapsed / duration, 1);
+                // Epic smooth ease in-out
+                const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+                // Book moves slightly forward and straightens out perfectly
+                bookGroup.position.z = startPos.z + ease * 1.5;
+                bookGroup.rotation.y = startRot.y + ease * 0.4;
+                bookGroup.rotation.x = startRot.x - ease * startRot.x; // Straightens to face camera
+
+                // Camera physically DIVES into the glowing book
+                camera.position.z = startCamZ - ease * 2.8;
+                camera.position.y = startCamY - ease * (startCamY - 1.0);
+                camera.lookAt(bookGroup.position);
+
+                // Book emits intense magical glow from the pages
+                bookGlow.intensity = ease * 6.0;
+                if(bookPages && bookPages.material) {
+                    bookPages.material.forEach(m => {
+                        m.emissive = new THREE.Color(0x8b7dff);
+                        m.emissiveIntensity = ease * 2.5; 
+                    });
+                }
+
+                // Front cover sweeps open widely
+                if (frontCover) {
+                    frontCover.rotation.y = ease * -2.8;
+                    frontCover.position.x = -0.7 * ease;
+                }
+                if (titlePlane) {
+                    titlePlane.rotation.y = ease * -2.8;
+                    titlePlane.position.x = -0.7 * ease;
+                    titlePlane.material.opacity = 1 - ease;
+                }
+                if (emblem) {
+                    emblem.rotation.y = ease * -2.8;
+                    emblem.position.x = -0.7 * ease;
+                }
+
+                // Sync UI Panel popping out of the glowing book void
+                if (t > 0.4) {
+                    const uiEase = Math.pow((t - 0.4) / 0.6, 3); // emerges in the 2nd half
+                    loginPanel.style.opacity = uiEase * 0.5;
+                    loginPanel.style.transform = `translate(-50%, -50%) scale(${0.1 + uiEase * 0.7}) perspective(1000px) rotateX(${(1 - uiEase) * 60}deg) translateY(${(1 - uiEase) * 200}px)`;
+                }
+
+                if (t < 1) {
+                    requestAnimationFrame(openAnim);
+                } else {
+                    // Finalize UI presentation
+                    currentState = 'role-select';
+                    loginPanel.style.transition = 'all 0.8s cubic-bezier(0.19, 1, 0.22, 1)';
+                    loginPanel.style.transform = ''; // Reset inline styles so CSS takes over
+                    loginPanel.style.opacity = '';
+                    loginPanel.classList.add('visible');
+                    animatingBook = false;
+                }
+            }
+            requestAnimationFrame(openAnim);
+        }
+
+        // --- Login function ---
+        let authMode = 'login'; // 'login' or 'signup'
+        window.selectedRole = null;
+
+        window.selectRole = function(role) {
+            window.selectedRole = role;
+            document.getElementById('login-panel').classList.remove('visible');
+            
+            currentState = 'login';
+            document.getElementById('credentials-panel').classList.add('visible');
+            switchAuthMode('login');
+        };
+
+        window.backToRoles = function() {
+            document.getElementById('credentials-panel').classList.remove('visible');
+            
+            // Clear inputs
+            document.getElementById('userid').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('fullname').value = '';
+            document.getElementById('confirm-password').value = '';
+
+            currentState = 'role-select';
+            document.getElementById('login-panel').classList.add('visible');
+        };
+
+        window.switchAuthMode = function(mode) {
+            authMode = mode;
+            
+            // Update tabs
+            document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+            document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+            
+            // Update title
+            document.getElementById('cred-title').innerText = mode === 'login' ? 'Login' : 'Sign Up';
+            document.getElementById('cred-subtitle').innerText = mode === 'login' ? 'Welcome back, enter your details' : 'Create a new account to get started';
+
+            // Show/Hide fields
+            document.getElementById('fullname').style.display = mode === 'signup' ? 'block' : 'none';
+            document.getElementById('confirm-password').style.display = mode === 'signup' ? 'block' : 'none';
+
+            // Update button text
+            document.getElementById('auth-submit-btn').innerText = mode === 'login' ? 'Login' : 'Sign Up';
+        };
+
+        window.submitCredentials = function() {
+            const id = document.getElementById('userid').value;
+            const pass = document.getElementById('password').value;
+            
+            if(authMode === 'login') {
+                if(!id || !pass) {
+                    alert("Please enter ID and password to proceed.");
+                    return;
+                }
+            } else {
+                const name = document.getElementById('fullname').value;
+                const confPass = document.getElementById('confirm-password').value;
+                if(!name || !id || !pass || !confPass) {
+                    alert("Please fill in all details to sign up.");
+                    return;
+                }
+                if(pass !== confPass) {
+                    alert("Passwords do not match!");
+                    return;
+                }
+            }
+
+            // Route to specific dashboards based on selected role
+            if (window.selectedRole === 'teacher') {
+                window.location.href = 'Teachers.html';
+            } else if (window.selectedRole === 'parent') {
+                window.location.href = 'parent.html';
+            } else if (window.selectedRole === 'student') {
+                window.location.href = 'stu.html';
+            } else {
+                // Fallback
+                window.location.href = 'stu.html';
+            }
+        };
+
+        // --- Back function ---
+        window.goBack = function() {
+            document.getElementById('credentials-panel').classList.remove('visible');
+            currentState = 'landing';
+            switchAuthMode('login');
+
+            // Clear inputs
+            document.getElementById('userid').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('fullname').value = '';
+            document.getElementById('confirm-password').value = '';
+            
+            // Restore full opacity
+            renderer.domElement.style.opacity = '1';
+        };
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            // Cursor light follows mouse
+            cursorLight.position.x += (mouseX * 3 - cursorLight.position.x) * 0.05;
+            cursorLight.position.y += (-mouseY * 2 - cursorLight.position.y) * 0.05;
+
+            // Parallax on scene
+            if (currentState !== 'dashboard') {
+                scene.rotation.y += (mouseX * 0.05 - scene.rotation.y) * 0.02;
+                scene.rotation.x += (-mouseY * 0.03 - scene.rotation.x) * 0.02;
+            }
+
+            // Book idle animation
+            if (currentState === 'landing' && !bookOpened) {
+                bookGroup.position.y = 0.3 + Math.sin(time * 1.5) * 0.08;
+                bookGroup.rotation.y = -0.2 + Math.sin(time * 0.8) * 0.05;
+
+                // Emblem spin
+                const emblem = bookGroup.getObjectByName('emblem');
+                if (emblem) emblem.rotation.y += 0.02;
+            }
+
+            // Character idle — eyes always track cursor
+            if (characterGroup.visible) {
+                const head = characterGroup.getObjectByName('charHead');
+                if (head) {
+                    // Head subtly turns toward cursor
+                    head.rotation.y += (mouseX * 0.2 - head.rotation.y) * 0.05;
+                    head.rotation.x += (mouseY * -0.1 - head.rotation.x) * 0.05;
+                }
+                // Breathing
+                const torso = characterGroup.getObjectByName('charTorso');
+                if (torso) {
+                    torso.scale.y = 1 + Math.sin(time * 2) * 0.01;
+                }
+                // Pupils + iris follow cursor with smooth lerp
+                const lp = characterGroup.getObjectByName('charLeftPupil');
+                const rp = characterGroup.getObjectByName('charRightPupil');
+                const li = characterGroup.getObjectByName('charLeftIris');
+                const ri = characterGroup.getObjectByName('charRightIris');
+                const lh = characterGroup.getObjectByName('charLeftHighlight');
+                const rh = characterGroup.getObjectByName('charRightHighlight');
+
+                if (lp && rp) {
+                    const eyeRangeX = 0.06;
+                    const eyeRangeY = 0.04;
+                    const targetLPx = -0.1 + mouseX * eyeRangeX;
+                    const targetRPx = 0.1 + mouseX * eyeRangeX;
+                    const targetPy = 1.56 + mouseY * -eyeRangeY;
+
+                    lp.position.x += (targetLPx - lp.position.x) * 0.12;
+                    lp.position.y += (targetPy - lp.position.y) * 0.12;
+                    rp.position.x += (targetRPx - rp.position.x) * 0.12;
+                    rp.position.y += (targetPy - rp.position.y) * 0.12;
+                }
+                if (li && ri) {
+                    const irisRangeX = 0.05;
+                    const irisRangeY = 0.03;
+                    li.position.x += (-0.1 + mouseX * irisRangeX - li.position.x) * 0.12;
+                    li.position.y += (1.56 + mouseY * -irisRangeY - li.position.y) * 0.12;
+                    ri.position.x += (0.1 + mouseX * irisRangeX - ri.position.x) * 0.12;
+                    ri.position.y += (1.56 + mouseY * -irisRangeY - ri.position.y) * 0.12;
+                }
+                if (lh && rh) {
+                    lh.position.x += (-0.085 + mouseX * 0.04 - lh.position.x) * 0.1;
+                    lh.position.y += (1.58 + mouseY * -0.025 - lh.position.y) * 0.1;
+                    rh.position.x += (0.115 + mouseX * 0.04 - rh.position.x) * 0.1;
+                    rh.position.y += (1.58 + mouseY * -0.025 - rh.position.y) * 0.1;
+                }
+            }
+
+            // Floating objects
+            floatingObjects.forEach(obj => {
+                const d = obj.userData;
+                obj.position.y += Math.sin(time * d.speed + d.phase) * 0.002 * d.amplitude;
+                obj.rotation.x += d.rotSpeed;
+                obj.rotation.y += d.rotSpeed * 0.7;
+            });
+
+            // Starfield drift
+            if (particles) {
+                particles.rotation.y += 0.0002;
+                particles.rotation.x += 0.00005;
+            }
+
+            // Nebula pulse
+            nebulaClouds.forEach(neb => {
+                const nd = neb.userData;
+                neb.material.opacity = nd.baseOpacity + Math.sin(time * nd.pulseSpeed + nd.phase) * nd.baseOpacity * 0.4;
+                neb.rotation.y += 0.001;
+            });
+
+            // Energy rings rotate
+            energyRings.forEach(ring => {
+                ring.rotation.z += ring.userData.speed * 0.01;
+            });
+
+            // Atmospheric lights subtle movement
+            atmoLight1.intensity = 1.2 + Math.sin(time * 0.8) * 0.3;
+            atmoLight2.intensity = 0.6 + Math.sin(time * 1.2 + 1) * 0.2;
+
+            // Holographic panels parallax + float
+            holoPanels.forEach(panel => {
+                const d = panel.userData;
+                // Float up/down
+                panel.position.y = d.basePos[1] + Math.sin(time * d.floatSpeed + d.floatPhase) * 0.15;
+                // Parallax: shift based on cursor
+                panel.position.x += (d.basePos[0] + mouseX * d.parallax * 2 - panel.position.x) * 0.03;
+                panel.position.y += (d.basePos[1] + mouseY * -d.parallax * 1.5 + Math.sin(time * d.floatSpeed + d.floatPhase) * 0.15 - panel.position.y) * 0.03;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // --- Resize ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- Start ---
+        // --- 3D Splash Screen ---
+        function initSplash3D() {
+            const splashCanvas = document.getElementById('splash-3d-canvas');
+            const sW = window.innerWidth;
+            const sH = window.innerHeight;
+
+            // Splash renderer
+            const sRenderer = new THREE.WebGLRenderer({ canvas: splashCanvas, antialias: true, alpha: false });
+            sRenderer.setSize(sW, sH);
+            sRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            sRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            sRenderer.toneMappingExposure = 1.2;
+            sRenderer.outputColorSpace = THREE.SRGBColorSpace;
+
+            // Splash scene & camera
+            const sScene = new THREE.Scene();
+            sScene.fog = new THREE.FogExp2(0x020205, 0.06);
+            const sCam = new THREE.PerspectiveCamera(55, sW / sH, 0.1, 100);
+            sCam.position.set(0, 0, 6);
+
+            // Mouse for parallax
+            let sMx = 0, sMy = 0;
+            window.addEventListener('mousemove', (e) => {
+                sMx = (e.clientX / sW - 0.5) * 2;
+                sMy = (e.clientY / sH - 0.5) * 2;
+            });
+
+            // --- Lights ---
+            sScene.add(new THREE.AmbientLight(0x303050, 0.6));
+
+            const sMainLight = new THREE.PointLight(0x6c63ff, 2.5, 20);
+            sMainLight.position.set(0, 2, 4);
+            sScene.add(sMainLight);
+
+            const sRimLight = new THREE.PointLight(0x2ed589, 1.0, 15);
+            sRimLight.position.set(-4, -2, 2);
+            sScene.add(sRimLight);
+
+            const sTopLight = new THREE.PointLight(0xff9f43, 0.6, 12);
+            sTopLight.position.set(3, 4, -2);
+            sScene.add(sTopLight);
+
+            // --- Star-field Background ---
+            const starCount = 1500;
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(starCount * 3);
+            const starCol = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount; i++) {
+                starPos[i * 3] = (Math.random() - 0.5) * 40;
+                starPos[i * 3 + 1] = (Math.random() - 0.5) * 40;
+                starPos[i * 3 + 2] = (Math.random() - 0.5) * 40 - 5;
+                const c = new THREE.Color();
+                c.setHSL(0.68 + Math.random() * 0.15, 0.5 + Math.random() * 0.3, 0.6 + Math.random() * 0.4);
+                starCol[i * 3] = c.r; starCol[i * 3 + 1] = c.g; starCol[i * 3 + 2] = c.b;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+            const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+                size: 0.04, vertexColors: true, transparent: true, opacity: 0.7,
+                blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+            }));
+            sScene.add(stars);
+
+            // --- Neural Network Brain Sphere ---
+            const brainGroup = new THREE.Group();
+            sScene.add(brainGroup);
+
+            // Nodes on sphere surface
+            const nodeCount = 100;
+            const brainRadius = 1.6;
+            const nodes = [];
+            const nodeMat = new THREE.MeshStandardMaterial({
+                color: 0x8b7dff, emissive: 0x6c63ff, emissiveIntensity: 0.8,
+                roughness: 0.2, metalness: 0.3
+            });
+            const nodeGeo = new THREE.SphereGeometry(0.04, 8, 8);
+
+            for (let i = 0; i < nodeCount; i++) {
+                const phi = Math.acos(1 - 2 * (i + 0.5) / nodeCount);
+                const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+                const x = brainRadius * Math.sin(phi) * Math.cos(theta);
+                const y = brainRadius * Math.sin(phi) * Math.sin(theta);
+                const z = brainRadius * Math.cos(phi);
+
+                const node = new THREE.Mesh(nodeGeo, nodeMat.clone());
+                node.position.set(x, y, z);
+                node.userData.baseEmissive = 0.3 + Math.random() * 0.7;
+                node.userData.pulseSpeed = 1 + Math.random() * 3;
+                node.userData.pulsePhase = Math.random() * Math.PI * 2;
+                brainGroup.add(node);
+                nodes.push(node);
+            }
+
+            // Connections between nearby nodes
+            const connectionMat = new THREE.LineBasicMaterial({
+                color: 0x6c63ff, transparent: true, opacity: 0.15,
+                blending: THREE.AdditiveBlending, depthWrite: false
+            });
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const dist = nodes[i].position.distanceTo(nodes[j].position);
+                    if (dist < 0.9) {
+                        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                            nodes[i].position, nodes[j].position
+                        ]);
+                        brainGroup.add(new THREE.Line(lineGeo, connectionMat));
+                    }
+                }
+            }
+
+            // Wireframe brain sphere
+            const wireGeo = new THREE.IcosahedronGeometry(brainRadius + 0.05, 2);
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x6c63ff, wireframe: true, transparent: true, opacity: 0.06,
+                blending: THREE.AdditiveBlending
+            });
+            brainGroup.add(new THREE.Mesh(wireGeo, wireMat));
+
+            brainGroup.position.set(0, 0.3, 0);
+
+            // --- Orbiting Educational Objects ---
+            const orbitGroup = new THREE.Group();
+            sScene.add(orbitGroup);
+
+            const orbitItems = [];
+            const orbitColors = [0x6c63ff, 0x2ed589, 0xff9f43, 0x38bdf8, 0xec4899];
+            const orbitGeos = [
+                new THREE.BoxGeometry(0.35, 0.45, 0.08),  // book
+                new THREE.OctahedronGeometry(0.15, 0),     // crystal
+                new THREE.TorusGeometry(0.12, 0.04, 8, 24),// ring
+                new THREE.TetrahedronGeometry(0.14, 0),    // tetra
+                new THREE.ConeGeometry(0.1, 0.25, 6),     // pencil tip
+                new THREE.BoxGeometry(0.2, 0.3, 0.06),    // notebook
+            ];
+
+            for (let i = 0; i < 8; i++) {
+                const geo = orbitGeos[i % orbitGeos.length];
+                const mat = new THREE.MeshStandardMaterial({
+                    color: orbitColors[i % orbitColors.length],
+                    emissive: orbitColors[i % orbitColors.length],
+                    emissiveIntensity: 0.2,
+                    roughness: 0.4, metalness: 0.2,
+                    transparent: true, opacity: 0.7
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                const angle = (i / 8) * Math.PI * 2;
+                const orbitR = 2.8 + Math.random() * 0.8;
+                const yOff = (Math.random() - 0.5) * 1.5;
+                mesh.position.set(
+                    Math.cos(angle) * orbitR,
+                    yOff + 0.3,
+                    Math.sin(angle) * orbitR
+                );
+                mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+                mesh.userData = {
+                    angle: angle, radius: orbitR, yBase: yOff + 0.3,
+                    speed: 0.15 + Math.random() * 0.15,
+                    bobSpeed: 0.5 + Math.random(),
+                    bobAmp: 0.1 + Math.random() * 0.15,
+                    rotSpeed: (Math.random() - 0.5) * 0.03
+                };
+                orbitGroup.add(mesh);
+                orbitItems.push(mesh);
+            }
+
+            // --- 3D Text Plane "ABSENT MIND" ---
+            const textCanvas = document.createElement('canvas');
+            textCanvas.width = 1024;
+            textCanvas.height = 400;
+            const tCtx = textCanvas.getContext('2d');
+
+            // Background transparent
+            tCtx.clearRect(0, 0, 1024, 400);
+
+            // Glow behind text
+            tCtx.shadowColor = 'rgba(108, 99, 255, 0.8)';
+            tCtx.shadowBlur = 40;
+
+            // "ABSENT" main word
+            tCtx.fillStyle = '#ffffff';
+            tCtx.font = '800 100px "Space Grotesk", sans-serif';
+            tCtx.textAlign = 'center';
+            tCtx.textBaseline = 'middle';
+            tCtx.fillText('ABSENT', 512, 140);
+
+            // "MIND" with accent
+            tCtx.fillStyle = '#8b7dff';
+            tCtx.font = '800 90px "Space Grotesk", sans-serif';
+            tCtx.fillText('MIND', 512, 260);
+
+            // Decorative line below words
+            tCtx.shadowBlur = 20;
+            const grad = tCtx.createLinearGradient(256, 0, 768, 0);
+            grad.addColorStop(0, 'transparent');
+            grad.addColorStop(0.3, '#6c63ff');
+            grad.addColorStop(0.5, '#8b7dff');
+            grad.addColorStop(0.7, '#6c63ff');
+            grad.addColorStop(1, 'transparent');
+            tCtx.strokeStyle = grad;
+            tCtx.lineWidth = 2;
+            tCtx.beginPath();
+            tCtx.moveTo(300, 330);
+            tCtx.lineTo(724, 330);
+            tCtx.stroke();
+
+            const textTexture = new THREE.CanvasTexture(textCanvas);
+            textTexture.needsUpdate = true;
+
+            const textMat = new THREE.MeshBasicMaterial({
+                map: textTexture, transparent: true, side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending, depthWrite: false
+            });
+            const textPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(5, 2),
+                textMat
+            );
+            textPlane.position.set(0, 0.3, 2.5);
+            sScene.add(textPlane);
+
+            // Text reveal animation (starts invisible, fades in)
+            textMat.opacity = 0;
+            const textRevealStart = 0.8; // seconds delay
+            const textRevealDur = 1.2;
+
+            // --- Energy ring around brain ---
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0x6c63ff, transparent: true, opacity: 0.12,
+                side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+            });
+            const ring1 = new THREE.Mesh(new THREE.TorusGeometry(2.0, 0.01, 8, 80), ringMat);
+            ring1.rotation.x = Math.PI / 2.5;
+            brainGroup.add(ring1);
+
+            const ring2Mat = ringMat.clone();
+            ring2Mat.opacity = 0.08;
+            const ring2 = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.008, 8, 80), ring2Mat);
+            ring2.rotation.x = Math.PI / 1.8;
+            ring2.rotation.y = 0.5;
+            brainGroup.add(ring2);
+
+            // --- Animate ---
+            let sTime = 0;
+            let splashAnimId;
+            const startMs = performance.now();
+
+            function animateSplash() {
+                splashAnimId = requestAnimationFrame(animateSplash);
+                const now = performance.now();
+                sTime = (now - startMs) / 1000;
+
+                // Epic cinematic pull-back transition from previous zoom
+                const swoopEase = 1 - Math.pow(1 - Math.min(sTime / 2.5, 1), 4); // Quartic ease out
+                const currentZ = 0.01 + (6.0 - 0.01) * swoopEase;
+                const dropY = 2.0 * (1 - swoopEase); // Starts high, swoops down
+                sCam.position.z = currentZ;
+
+                // Parallax camera layered on top
+                sCam.position.x += (sMx * 0.4 - sCam.position.x) * 0.03;
+                sCam.position.y += (-sMy * 0.3 + 0.2 + dropY - sCam.position.y) * 0.03;
+                
+                // Add a spin unroll effect
+                sCam.rotation.z = (1 - swoopEase) * Math.PI * 0.5;
+                
+                sCam.lookAt(0, 0.3, 0);
+
+                // Brain rotation
+                brainGroup.rotation.y = sTime * 0.2;
+                brainGroup.rotation.x = Math.sin(sTime * 0.3) * 0.1;
+
+                // Node pulsing
+                nodes.forEach(n => {
+                    const pulse = 0.4 + Math.sin(sTime * n.userData.pulseSpeed + n.userData.pulsePhase) * 0.4;
+                    n.material.emissiveIntensity = n.userData.baseEmissive * pulse;
+                    const s = 0.8 + pulse * 0.5;
+                    n.scale.set(s, s, s);
+                });
+
+                // Energy rings
+                ring1.rotation.z = sTime * 0.3;
+                ring2.rotation.z = -sTime * 0.2;
+
+                // Orbiting objects
+                orbitItems.forEach(obj => {
+                    const d = obj.userData;
+                    d.angle += d.speed * 0.01;
+                    obj.position.x = Math.cos(d.angle) * d.radius;
+                    obj.position.z = Math.sin(d.angle) * d.radius;
+                    obj.position.y = d.yBase + Math.sin(sTime * d.bobSpeed) * d.bobAmp;
+                    obj.rotation.x += d.rotSpeed;
+                    obj.rotation.y += d.rotSpeed * 0.7;
+                });
+
+                // Star drift
+                stars.rotation.y += 0.0002;
+                stars.rotation.x += 0.0001;
+
+                // Text reveal
+                if (sTime > textRevealStart) {
+                    const t = Math.min((sTime - textRevealStart) / textRevealDur, 1);
+                    textMat.opacity = t;
+                    // Subtle float
+                    textPlane.position.y = 0.3 + Math.sin(sTime * 0.8) * 0.05;
+                }
+
+                // Main light pulse
+                sMainLight.intensity = 2.5 + Math.sin(sTime * 1.5) * 0.5;
+
+                sRenderer.render(sScene, sCam);
+            }
+            animateSplash();
+
+            // Transition out after 5.5s
+            setTimeout(() => {
+                cancelAnimationFrame(splashAnimId);
+                sRenderer.dispose();
+                document.getElementById('loading-screen').classList.add('hidden');
+                setTimeout(() => {
+                    animateBookFall();
+                }, 1000);
+            }, 5500);
+
+            // Handle resize during splash
+            window.addEventListener('resize', () => {
+                sCam.aspect = window.innerWidth / window.innerHeight;
+                sCam.updateProjectionMatrix();
+                sRenderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        initSplash3D();
+        animate();
+
+    </script>
+</body>
+</html>

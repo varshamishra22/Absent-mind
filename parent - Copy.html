@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futuristic 3D Parent Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Post-Processing & Text Geometry for Holographic Scene -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        :root {
+            --bg-deep: #0B0F1A;
+            --bg-mid: #111827;
+            --blue: #3B82F6;
+            --purple: #8B5CF6;
+            --cyan: #22D3EE;
+            --green: #22C55E;
+            --red: #EF4444;
+            --yellow: #F59E0B;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #F3F4F6;
+            --text-dim: #9CA3AF;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-deep), var(--bg-mid), var(--bg-deep));
+            background-size: 400% 400%;
+            animation: gradientAnim 15s ease infinite;
+            color: var(--text-main);
+            overflow-x: hidden;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Animated Grid Lines */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: -2;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        @keyframes gradientAnim {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Particles */
+        #particles { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+        .particle {
+            position: absolute; border-radius: 50%; background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan); animation: floatUp linear infinite; opacity: 0;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            20% { opacity: 0.5; transform: scale(1); }
+            80% { opacity: 0.5; }
+            100% { transform: translateY(-10vh) scale(0); opacity: 0; }
+        }
+
+        /* Page Loading Screen */
+        #page-loader {
+            position: fixed; inset: 0; z-index: 9999;
+            background: var(--bg-deep); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: opacity 0.8s;
+        }
+        .loader-ring {
+            width: 80px; height: 80px; border-radius: 50%;
+            border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--cyan);
+            animation: spin 1s infinite linear; margin-bottom: 20px;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Typography & Utils */
+        h1, h2, h3, h4 { color: #fff; }
+        .flex { display: flex; } .flex-col { display: flex; flex-direction: column; }
+        .gap-4 { gap: 1rem; } .gap-6 { gap: 1.5rem; }
+        .p-6 { padding: 1.5rem; } .mt-6 { margin-top: 1.5rem; }
+
+        /* Glassmorphism & Hover Tilt */
+        .glass {
+            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border); border-radius: 16px; 
+            box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+            transform-style: preserve-3d; transition: transform 0.2s ease-out, box-shadow 0.3s;
+        }
+        .glass > * { transform-style: preserve-3d; }
+        .glass:hover { border-color: rgba(255,255,255,0.2); box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
+
+        /* ------------------ 3D REPORT CARD LOGIN ------------------ */
+        #login-screen {
+            position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
+            z-index: 100; backdrop-filter: blur(10px); transition: opacity 0.8s, transform 0.8s;
+        }
+        .report-scene { width: 400px; height: 500px; perspective: 1200px; }
+        .report-folder {
+            width: 100%; height: 100%; position: relative; transform-style: preserve-3d; cursor: pointer;
+        }
+        .report-folder.closed { animation: floatingFolder 3s infinite ease-in-out; }
+        @keyframes floatingFolder { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
+
+        .report-folder:hover.closed { transform: rotateY(10deg) rotateX(5deg) scale(1.05); box-shadow: 0 0 50px rgba(59, 130, 246, 0.4); }
+        
+        .folder-face {
+            position: absolute; width: 100%; height: 100%; border-radius: 16px;
+            backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .folder-front {
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            transform-origin: left; transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 2; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.2);
+            transform: translateZ(2px);
+        }
+        .folder-front h1 { font-size: 2.8rem; text-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+        
+        .folder-inside {
+            background: var(--bg-mid); border: 1px solid var(--glass-border);
+            transform: translateZ(0px); padding: 2.5rem;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+        }
+        
+        /* Opening mechanism */
+        .folder-open { animation: none; transform: translateX(50px); cursor: default; }
+        .folder-open .folder-front { transform: rotateY(-140deg); pointer-events: none; }
+        
+        .login-form { width: 100%; display: none; flex-direction: column; gap: 1.2rem; position: relative; z-index: 50; }
+        .input-group { position: relative; width: 100%; opacity: 0; transform: translateX(30px); }
+        .folder-open .input-group { animation: slideInX 0.5s forwards; }
+        .folder-open .input-group:nth-child(2) { animation-delay: 0.3s; }
+        .folder-open .input-group:nth-child(3) { animation-delay: 0.5s; }
+        .folder-open .btn-glow { animation: slideInX 0.5s 0.7s forwards; opacity: 0; transform: translateX(30px); }
+
+        @keyframes slideInX { to { opacity: 1; transform: translateX(0); } }
+
+        .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--blue); }
+        .input-group input {
+            width: 100%; padding: 15px 15px 15px 45px; background: rgba(0,0,0,0.3); color: #fff;
+            border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem; outline: none; transition: 0.3s;
+        }
+        .input-group input:focus { border-color: var(--cyan); box-shadow: 0 0 20px rgba(34, 211, 238, 0.3); }
+
+        .btn-glow {
+            padding: 15px; background: linear-gradient(135deg, var(--blue), var(--purple)); color: white;
+            border: none; border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+            position: relative; overflow: hidden; transition: 0.3s;
+        }
+        .btn-glow:hover { box-shadow: 0 0 25px var(--cyan); transform: translateY(-2px); }
+        .btn-ripple { position: absolute; background: rgba(255,255,255,0.4); border-radius: 50%; transform: scale(0); animation: ripple 0.6s linear; pointer-events: none;}
+        @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+        /* ------------------ DASHBOARD LAYOUT ------------------ */
+        #main-app { display: none; width: 100%; height: 100vh; overflow: hidden; opacity: 0; }
+        #main-app.active { display: flex; animation: dashboardFadeSlide 1s forwards; }
+        @keyframes dashboardFadeSlide { from { opacity: 0; transform: scale(0.95) translateY(20px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; height: 100%; border-right: 1px solid var(--glass-border); padding: 2rem 1.5rem; display: flex; flex-direction: column; background: rgba(11, 15, 26, 0.7); backdrop-filter: blur(20px); z-index: 10; }
+        .logo { font-size: 1.6rem; font-weight: 800; display: flex; align-items: center; gap: 12px; margin-bottom: 3rem; color: #fff; text-shadow: 0 0 10px var(--cyan);}
+        .nav-items { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; }
+        .nav-item { padding: 14px 16px; border-radius: 12px; display: flex; align-items: center; gap: 15px; color: var(--text-dim); text-decoration: none; font-weight: 500; transition: 0.3s; cursor: pointer; }
+        .nav-item:hover, .nav-item.active { background: rgba(59, 130, 246, 0.15); color: var(--cyan); box-shadow: inset 4px 0 0 var(--cyan); }
+        
+        /* Main Content */
+        .content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 2rem; position: relative; }
+        .content::-webkit-scrollbar { width: 8px; } .content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        
+        /* Topbar */
+        .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--glass-border); }
+        .student-selector { background: rgba(0,0,0,0.5); border: 1px solid var(--blue); color: white; padding: 10px 15px; border-radius: 8px; outline: none; transition: box-shadow 0.3s; }
+        .student-selector:focus { box-shadow: 0 0 15px var(--blue); }
+        .user-profile { display: flex; align-items: center; gap: 15px; }
+        .avatar { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, var(--cyan), var(--purple)); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid rgba(255,255,255,0.3); }
+        .status-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; box-shadow: 0 0 10px var(--green); display: inline-block; }
+
+        /* Action Buttons */
+        .top-actions { display: flex; gap: 1rem; }
+        .icon-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--glass-bg); border: 1px solid var(--glass-border); color: #fff; cursor: pointer; transition: 0.3s; display: flex; justify-content: center; align-items: center; }
+        .icon-btn:hover { background: var(--blue); box-shadow: 0 0 20px var(--blue); transform: scale(1.1); }
+
+        /* Dashboard Grid */
+        .grid-dashboard { display: grid; grid-template-columns: 1.2fr 2.8fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+        .cube-container-wrapper { height: 350px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+        #cube-container { width: 100%; height: 100%; }
+        .cube-overlay { position: absolute; bottom: 15px; text-align: center; font-size: 0.85rem; color: var(--text-dim); width: 100%; pointer-events: none; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+
+        /* Stat Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; height: 100%; }
+        .stat-card { padding: 2rem; overflow: hidden; position: relative; display: flex; flex-direction: column; justify-content: space-between; transition: 0.3s; }
+        .stat-card p { transition: transform 0.3s; }
+        .stat-card i { transition: transform 0.3s, color 0.3s; }
+        .stat-value { font-size: 3.5rem; font-weight: 800; background: linear-gradient(135deg, #fff, var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; line-height: 1; transition: transform 0.3s, filter 0.3s; }
+        .stat-label { color: var(--text-dim); font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 5px; transition: transform 0.3s; }
+        
+        /* 3D Hover Parallax Elements */
+        .glass:hover .stat-value { transform: translateZ(50px); filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); }
+        .glass:hover .stat-label { transform: translateZ(30px); }
+        .glass:hover .circular-progress { transform: translateZ(60px) scale(1.05); box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 2px 10px rgba(255,255,255,0.3); }
+        .glass:hover .circular-value { transform: translateZ(30px) scale(1.1); text-shadow: 0 5px 15px rgba(0,0,0,0.9); }
+        .glass:hover .fas { transform: translateZ(40px); }
+        .glass:hover p { transform: translateZ(25px); }
+        .glass:hover h3 { transform: translateZ(35px); }
+        .glass:hover .remarks-content { transform: translateZ(30px); box-shadow: -10px 15px 30px rgba(0,0,0,0.6); }
+        .glass:hover .lang-toggle { transform: translateZ(30px); }
+        
+        /* Circular Progress Bars */
+        .circular-progress { width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; background: conic-gradient(var(--c) var(--p, 0%), rgba(255,255,255,0.1) 0); transition: --p 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s, box-shadow 0.3s; box-shadow: 0 0 20px rgba(0,0,0,0.5), inset 0 2px 10px rgba(255,255,255,0.1); transform-style: preserve-3d; }
+        .circular-progress::before { content: ""; position: absolute; inset: 8px; background: var(--bg-deep); border-radius: 50%; box-shadow: inset 0 8px 15px rgba(0,0,0,0.9), 0 2px 5px rgba(255,255,255,0.1); }
+        .circular-value { position: relative; font-weight: 700; font-size: 1.4rem; color: #fff; transition: transform 0.3s, text-shadow 0.3s; }
+
+        /* Remarks Section & Toggle */
+        .remarks-section { background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; position: relative; overflow: visible; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transform-style: preserve-3d; }
+        .lang-toggle { display: flex; align-items: center; gap: 10px; font-weight: bold; transition: transform 0.3s; }
+        .lang-toggle span { color: var(--text-dim); transition: 0.3s; font-size: 0.9rem; }
+        .lang-toggle span.active { color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
+        .switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--bg-mid); transition: .4s; border: 1px solid var(--glass-border); }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 3px; background-color: var(--cyan); transition: .4s; box-shadow: 0 0 10px var(--cyan); }
+        input:checked + .slider { background-color: var(--bg-mid); }
+        input:checked + .slider:before { transform: translateX(20px); background-color: var(--purple); box-shadow: 0 0 10px var(--purple); }
+        .slider.round { border-radius: 34px; }
+        .slider.round:before { border-radius: 50%; }
+        .remarks-content { font-size: 1.1rem; line-height: 1.6; color: var(--text-main); margin-top: 15px; padding: 20px; background: rgba(0,0,0,0.4); border-radius: 12px; border-left: 4px solid var(--cyan); transition: opacity 0.3s, transform 0.3s, box-shadow 0.3s; transform-style: preserve-3d; }
+
+        /* Charts Section */
+        .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .chart-box { height: 340px; padding: 1.5rem; position: relative; }
+
+        /* Advanced Wave Visual container */
+        #wave-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.3; pointer-events: none; border-radius: 16px; overflow: hidden;}
+        .chart-canvas-wrapper { position: relative; z-index: 1; height: 100%; width: 100%; }
+
+        /* Badges & Insights */
+        .insights-list { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
+        .insight-item { padding: 14px; border-radius: 10px; background: rgba(0,0,0,0.4); border-left: 4px solid; font-size: 0.95rem; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
+        .insight-item.positive { border-color: var(--green); }
+        .insight-item.warning { border-color: var(--yellow); }
+        .insight-item.danger { border-color: var(--red); color: #fff; }
+
+        .badges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px;}
+        .badge { padding: 10px 15px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); transition: 0.3s; }
+        .badge:hover { transform: scale(1.05); }
+        .badge.gold { color: #FFD700; box-shadow: 0 0 15px rgba(255,215,0,0.2); border-color: rgba(255,215,0,0.5); }
+        .badge.emerald { color: var(--green); box-shadow: 0 0 15px rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.5); }
+        .badge.indigo { color: var(--purple); box-shadow: 0 0 15px rgba(139,92,246,0.2); border-color: rgba(139,92,246,0.5); }
+
+        /* Notifications Panel */
+        #notification-panel {
+            position: fixed; top: 0; right: -400px; width: 400px; height: 100vh;
+            background: rgba(11, 15, 26, 0.95); backdrop-filter: blur(20px); border-left: 1px solid var(--glass-border);
+            transition: right 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 1000; padding: 2rem; display: flex; flex-direction: column;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+        #notification-panel.open { right: 0; }
+        .close-btn { align-self: flex-end; background: transparent; border: none; color: #fff; font-size: 2rem; cursor: pointer; transition: 0.3s;}
+        .close-btn:hover { color: var(--red); transform: rotate(90deg); }
+
+        /* Animations & Modifiers */
+        
+        /* 3D Holographic Panels for Tabs */
+        .holo-scene { perspective: 1800px; transform-style: preserve-3d; padding: 2rem 1rem; }
+        .holo-panel {
+            transform-style: preserve-3d;
+            transform: rotateX(12deg) rotateY(-15deg) translateZ(0px);
+            box-shadow: -30px 40px 60px rgba(0,0,0,0.8), 0 0 15px rgba(34, 211, 238, 0.2);
+            transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.6s;
+            border-left: 2px solid var(--cyan); border-bottom: 2px solid var(--purple);
+            transform-origin: center right;
+        }
+        .holo-panel:hover {
+            transform: rotateX(2deg) rotateY(0deg) translateZ(60px);
+            box-shadow: -10px 15px 30px rgba(0,0,0,0.5), 0 0 40px rgba(34, 211, 238, 0.6);
+        }
+
+        /* Pure CSS 3D Bar Chart */
+        .chart-3d-container { display: flex; align-items: flex-end; justify-content: space-around; width: 100%; height: 260px; padding-top: 20px; perspective: 1200px; transform-style: preserve-3d; margin-top: auto; }
+        .bar-wrapper { width: 40px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 8px; transform-style: preserve-3d; }
+        .bar-3d { width: 100%; height: var(--h); position: relative; transform-style: preserve-3d; transform: rotateX(25deg) rotateY(-25deg); animation: growUp 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; transform-origin: bottom; }
+        @keyframes growUp { from { transform: rotateX(25deg) rotateY(-25deg) scaleY(0); } to { transform: rotateX(25deg) rotateY(-25deg) scaleY(1); } }
+        .bar-3d .face { position: absolute; width: 100%; height: 100%; background: var(--c); border: 1px solid rgba(255,255,255,0.2); }
+        .bar-3d .front  { transform: translateZ(20px); }
+        .bar-3d .back   { transform: rotateY(180deg) translateZ(20px); filter: brightness(0.6); }
+        .bar-3d .left   { width: 40px; transform: rotateY(-90deg) translateZ(20px); filter: brightness(0.8); }
+        .bar-3d .right  { width: 40px; transform: rotateY(90deg) translateZ(20px); filter: brightness(0.7); }
+        .bar-3d .top    { height: 40px; transform: rotateX(90deg) translateZ(20px); filter: brightness(1.2); }
+        .bar-label { color: var(--text-dim); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;}
+        .bar-val { color: var(--c); font-size: 1rem; font-weight: 800; margin-bottom: 2px; text-shadow: 0 0 10px var(--c); }
+
+        /* Helpers */
+        @property --p { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+        
+        .animated-appear { opacity: 0; transform: translateY(20px); animation: slideUp 0.6s forwards; }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+
+        /* Modal System */
+        .modal-overlay {
+            position: fixed; inset: 0; z-index: 5000;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(12px);
+            display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: all 0.4s ease;
+        }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-content {
+            background: var(--bg-deep); border: 1px solid var(--glass-border);
+            width: 90%; max-width: 600px; padding: 40px; border-radius: 24px;
+            box-shadow: 0 0 50px rgba(34, 211, 238, 0.2);
+            transform: scale(0.9); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        .close-modal {
+            position: absolute; top: 24px; right: 24px; cursor: pointer;
+            font-size: 20px; color: var(--text-dim);
+        }
+        .modal-header { font-size: 24px; font-weight: 800; margin-bottom: 20px; color: var(--cyan); }
+        .modal-item {
+            padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.05);
+            margin-bottom: 12px; border: 1px solid var(--glass-border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        /* Premium Chart Styles */
+        .premium-chart-container {
+            position: relative; height: 350px; width: 100%;
+            background: rgba(10, 15, 30, 0.4); border-radius: 16px;
+            padding: 20px; border: 1px solid var(--glass-border);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            transform-style: preserve-3d; transition: transform 0.3s ease;
+        }
+        .premium-chart-container canvas {
+            transform: translateZ(40px);
+        }
+        .subject-card {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px; padding: 25px 20px; text-align: center;
+            backdrop-filter: blur(10px); transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative; overflow: hidden; transform-style: preserve-3d;
+        }
+        .subject-card:hover {
+            box-shadow: 0 15px 40px rgba(34, 211, 238, 0.2);
+            border-color: rgba(34, 211, 238, 0.4);
+        }
+        .subject-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            opacity: 0; transition: opacity 0.3s ease; transform: translateZ(0);
+        }
+        .subject-card:hover::before { opacity: 1; }
+        .subject-card > * {
+            transform: translateZ(30px);
+            transition: transform 0.3s ease;
+        }
+        .subject-icon { font-size: 2.5rem; margin-bottom: 15px; color: var(--cyan); filter: drop-shadow(0 0 10px var(--cyan)); }
+        
+        /* Custom Google Translate Styles */
+        #google_translate_element { display: flex; align-items: center; margin-right: 15px; }
+        #google_translate_element select {
+            background: rgba(0,0,0,0.5); border: 1px solid var(--blue); color: white; 
+            padding: 10px 15px; border-radius: 8px; outline: none; transition: box-shadow 0.3s;
+            font-family: 'Outfit', sans-serif; cursor: pointer;
+        }
+        #google_translate_element select:focus { box-shadow: 0 0 15px var(--blue); }
+        #google_translate_element select option { background: var(--bg-deep); color: white; }
+        .goog-te-gadget { font-size: 0px !important; color: transparent !important; display: flex; align-items: center; }
+        .goog-te-gadget .goog-te-combo { margin: 0 !important; }
+        body { top: 0 !important; }
+        .skiptranslate iframe { display: none !important; }
+
+        /* Contact Teacher Section */
+        .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .form-control { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 1rem; outline: none; transition: 0.3s; margin-bottom: 1rem; }
+        .form-control:focus { border-color: var(--cyan); box-shadow: 0 0 15px rgba(34, 211, 238, 0.2); }
+        .form-control option { background: var(--bg-deep); }
+        textarea.form-control { resize: vertical; min-height: 100px; }
+        
+        .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+        .time-slot { padding: 10px; text-align: center; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.05); cursor: pointer; transition: 0.3s; font-weight: 500; font-size: 0.9rem;}
+        .time-slot:hover:not(.disabled) { border-color: var(--cyan); background: rgba(34, 211, 238, 0.1); }
+        .time-slot.selected { background: var(--cyan); color: #000; font-weight: bold; border-color: var(--cyan); box-shadow: 0 0 15px var(--cyan); }
+        .time-slot.disabled { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+        
+        .status-badge { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .status-badge.pending { background: rgba(245, 158, 11, 0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+        .status-badge.accepted { background: rgba(34, 197, 94, 0.2); color: var(--green); border: 1px solid var(--green); }
+        .status-badge.rejected { background: rgba(239, 68, 68, 0.2); color: var(--red); border: 1px solid var(--red); }
+        
+        .chat-container { display: flex; flex-direction: column; height: 350px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--glass-border); overflow: hidden; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .chat-bubble { max-width: 80%; padding: 10px 15px; border-radius: 15px; font-size: 0.95rem; line-height: 1.4; animation: slideUp 0.3s forwards; }
+        .chat-bubble.teacher { background: rgba(59, 130, 246, 0.2); align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .chat-bubble.parent { background: linear-gradient(135deg, var(--cyan), var(--blue)); color: #fff; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .chat-time { font-size: 0.7rem; color: var(--text-dim); margin-top: 5px; text-align: right; }
+        .chat-input-area { display: flex; gap: 10px; padding: 15px; background: rgba(255,255,255,0.03); border-top: 1px solid var(--glass-border); }
+        .chat-input-area input { flex: 1; margin-bottom: 0; }
+        .chat-btn { padding: 10px 20px; border-radius: 8px; background: var(--cyan); color: #000; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .chat-btn:hover { box-shadow: 0 0 15px var(--cyan); transform: scale(1.05); }
+
+        .meeting-card { padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; border-left: 4px solid var(--purple); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.3s;}
+        .meeting-card:hover { transform: translateX(5px); background: rgba(255,255,255,0.1); }
+
+        /* PDF Export Overrides */
+        .pdf-mode { background: #0B0F1A !important; }
+        .pdf-mode .glass { 
+            background: #111827 !important; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important; 
+            border: 1px solid rgba(255,255,255,0.1) !important; 
+            backdrop-filter: none !important; 
+            -webkit-backdrop-filter: none !important; 
+        }
+        .pdf-mode .stat-value { 
+            background: none !important; 
+            -webkit-text-fill-color: var(--cyan) !important; 
+            color: var(--cyan) !important; 
+        }
+        .pdf-mode .circular-progress::before { background: #111827 !important; }
+        .pdf-mode * { text-shadow: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="page-loader">
+        <div class="loader-ring"></div>
+        <h2 style="color: var(--cyan); text-transform: uppercase; letter-spacing: 2px;">System Initializing</h2>
+    </div>
+
+    <!-- Particle Background -->
+    <div id="particles"></div>
+    <!-- 3D Login Objects Background -->
+    <canvas id="login-3d-bg" style="position: fixed; inset: 0; z-index: 50; pointer-events: none; opacity: 1; transition: opacity 1s; width: 100%; height: 100%;"></canvas>
+
+    <!-- 1. LOGIN EXPERIENCE -->
+    <div id="login-screen" style="display: none;">
+        <div class="report-scene">
+            <div class="report-folder closed" id="report-folder">
+                <div class="folder-face folder-front">
+                    <i class="fas fa-fingerprint" style="font-size: 3.5rem; color: var(--cyan); margin-bottom: 20px; filter: drop-shadow(0 0 10px var(--cyan));"></i>
+                    <h1>Parents Login</h1>
+                    <p style="color: rgba(255,255,255,0.7); margin-bottom: 15px; font-weight: 500; letter-spacing: 1px;">Click to Open File</p>
+                </div>
+                <div class="folder-face folder-inside">
+                    <div class="login-form" id="loginForm">
+                        <h2 style="text-align: center; margin-bottom: 10px; color: var(--cyan);">Parents Login</h2>
+                        <div class="input-group">
+                            <i class="fas fa-id-card"></i>
+                            <input type="text" placeholder="Username (e.g. STU-01, STU-02)" value="STU-01" id="l-roll">
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" placeholder="Password (e.g. parent123)" value="parent123" id="l-pass">
+                        </div>
+                        <button class="btn-glow" onclick="executeLogin(event)" style="margin-top: 10px;">Login to Dashboard</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MAIN DASHBOARD -->
+    <div id="main-app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-layer-group" style="color: var(--cyan);"></i> AbsentMind 3D
+            </div>
+            <nav class="nav-items">
+                <a class="nav-item active" onclick="switchView('view-dashboard', this)"><i class="fas fa-home"></i> Dashboard</a>
+                <a class="nav-item" onclick="switchView('view-performance', this)"><i class="fas fa-chart-line"></i> Performance</a>
+                <a class="nav-item" onclick="switchView('view-contact', this)"><i class="fas fa-comments"></i> Contact Teacher</a>
+                <a class="nav-item" onclick="toggleNotifications()"><i class="fas fa-bell"></i> Notifications</a>
+                <a class="nav-item" onclick="location.reload()" style="color: var(--red);"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </nav>
+            <div style="margin-top: auto;">
+                <button class="btn-glow" style="width: 100%; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="simulateUpdates()">
+                    <i class="fas fa-bolt"></i> Demo Mode
+                </button>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <main class="content">
+            <!-- Topbar -->
+            <header class="topbar animated-appear">
+                <div>
+                    <h2 id="parent-name">Welcome back, Loading...</h2>
+                    <p class="stat-label" style="margin-top: 5px; text-transform:none;" id="student-info">Loading student details...</p>
+                </div>
+                <div class="flex items-center gap-6">
+                    <!-- Google Translate Widget -->
+                    <div id="google_translate_element"></div>
+                    
+                    <select class="student-selector">
+                        <option id="sel-stu1"></option>
+                    </select>
+                    <div class="top-actions" style="display: flex; gap: 10px; align-items: center;">
+                        <button class="icon-btn" onclick="toggleNotifications()" title="Alerts"><i class="fas fa-bell"></i></button>
+                        <button class="btn-glow" style="padding: 8px 15px; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;" onclick="exportPDF('download')" title="Download PDF">
+                            <i class="fas fa-file-pdf"></i> Download PDF
+                        </button>
+                        <button class="btn-glow" style="padding: 8px 15px; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; background: linear-gradient(135deg, var(--green), var(--cyan));" onclick="exportPDF('share')" title="Share PDF">
+                            <i class="fas fa-share-alt"></i> Share
+                        </button>
+                    </div>
+                    <div class="user-profile">
+                        <div class="avatar" id="avatar-text">--</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Modules grids -->
+            <div id="view-dashboard" class="view-section active">
+                <div class="grid-dashboard animated-appear" style="animation-delay: 0.1s;">
+                <!-- 3D Core Visual -->
+                <div class="glass flex-col items-center cube-container-wrapper" title="3D Performance Cube">
+                    <div id="cube-container"></div>
+                    <div class="cube-overlay"><i class="fas fa-mouse"></i> Drag, rotate & zoom to inspect</div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="glass stat-card" onclick="showDetails('perf')" style="cursor: pointer;">
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <div class="stat-label">Overall Percentage</div>
+                                <i class="fas fa-percentage" style="color: var(--blue); font-size: 1.5rem;"></i>
+                            </div>
+                            <div class="flex items-center justify-between mt-6">
+                                <div class="stat-value counter" data-target="88.5">0</div>
+                                <div class="circular-progress" style="--c: var(--blue);" id="cp-perf">
+                                    <span class="circular-value">88%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="color: var(--green); font-size: 1rem; font-weight: 500; margin-top: 1rem;"><i class="fas fa-arrow-up"></i> 4.2% from last term</p>
+                    </div>
+                    <div class="glass stat-card" onclick="showDetails('rank')" style="cursor: pointer;">
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <div class="stat-label">Class Ranking</div>
+                                <i class="fas fa-trophy" style="color: var(--yellow); font-size: 1.5rem;"></i>
+                            </div>
+                            <div class="stat-value counter" data-target="3">0</div>
+                            <p style="color: var(--cyan); font-size: 1rem; font-weight: 500; margin-top: 1rem;">Out of 45 students</p>
+                        </div>
+                        <div style="margin-top: auto; width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;">
+                            <div style="width: 93%; height: 100%; background: var(--yellow); border-radius: 5px; box-shadow: 0 0 10px var(--yellow);"></div>
+                        </div>
+                    </div>
+                    <div class="glass stat-card" onclick="showDetails('att')" style="cursor: pointer;">
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <div class="stat-label">Attendance Record</div>
+                                <i class="fas fa-calendar-check" style="color: var(--purple); font-size: 1.5rem;"></i>
+                            </div>
+                            <div class="flex items-center justify-between mt-6">
+                                <div class="stat-value counter" data-target="96">0</div>
+                                <div class="circular-progress" style="--c: var(--purple);" id="cp-att">
+                                    <span class="circular-value">96%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="color: var(--text-dim); font-size: 1rem; font-weight: 500; margin-top: 1rem;">Present 144/150 days</p>
+                    </div>
+                </div>
+                </div>
+                
+                <!-- Remarks Section -->
+                <div class="glass flex-col remarks-section animated-appear" style="animation-delay: 0.2s; margin-top: 1.5rem; padding: 1.5rem;">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 style="font-size: 1.4rem;"><i class="fas fa-comment-dots" style="color: var(--cyan);"></i> Remarks & AI Summary</h3>
+                        <div class="lang-toggle">
+                            <span id="lang-eng" class="active">EN</span>
+                            <label class="switch">
+                                <input type="checkbox" id="lang-switch" onchange="toggleLanguage()">
+                                <span class="slider round"></span>
+                            </label>
+                            <span id="lang-hin">HI</span>
+                        </div>
+                    </div>
+                    <div id="remarks-content" class="remarks-content">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts & Analytics -->
+            <!-- PREMIUM PERFORMANCE DASHBOARD -->
+            <div id="view-performance" class="view-section" style="display: none;">
+                <!-- Main Line Graph for Consistency -->
+                <div class="glass holo-panel animated-appear" style="margin-bottom: 2rem;">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3><i class="fas fa-chart-line" style="color: var(--cyan);"></i> Overall Consistency Trend</h3>
+                    </div>
+                    <div class="premium-chart-container">
+                        <canvas id="premiumLineChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Subject Bar Graph -->
+                <div class="glass holo-panel animated-appear" style="margin-bottom: 2rem; animation-delay: 0.1s;">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3><i class="fas fa-chart-bar" style="color: var(--purple);"></i> Subject-Wise Performance</h3>
+                    </div>
+                    <div class="premium-chart-container">
+                        <canvas id="premiumBarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Subject Detail Cards -->
+                <h3 class="animated-appear" style="margin-bottom: 1rem; color: var(--text-dim); animation-delay: 0.2s;"><i class="fas fa-layer-group"></i> Detailed Subject Breakdown</h3>
+                <div class="grid-dashboard animated-appear" id="subject-cards-container" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); animation-delay: 0.3s; margin-top:0;">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+
+            <!-- CONTACT TEACHER & PTM BOOKING -->
+            <div id="view-contact" class="view-section" style="display: none;">
+                <div class="contact-grid">
+                    <!-- Left Column: Request Form -->
+                    <div class="flex-col gap-6">
+                        <div class="glass p-6 animated-appear">
+                            <h3 style="margin-bottom: 1.5rem;"><i class="fas fa-envelope-open-text" style="color: var(--cyan);"></i> Contact Teacher</h3>
+                            
+                            <label style="font-size: 0.9rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Select Subject Teacher</label>
+                            <select id="contact-teacher-select" class="form-control">
+                                <option value="math">Mathematics (Mr. D. Sharma)</option>
+                                <option value="science">Science (Mrs. P. Verma)</option>
+                                <option value="english">English (Ms. R. Iyer)</option>
+                            </select>
+
+                            <label style="font-size: 0.9rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Request Type</label>
+                            <select id="contact-type-select" class="form-control" onchange="togglePtmSlots()">
+                                <option value="chat">Live Chat</option>
+                                <option value="ptm">Request Parent-Teacher Meeting (PTM)</option>
+                            </select>
+
+                            <div id="ptm-slot-section" style="display: none; margin-bottom: 1rem;">
+                                <label style="font-size: 0.9rem; color: var(--text-dim); display: block;">Select Time Slot</label>
+                                <div class="slot-grid">
+                                    <div class="time-slot" onclick="selectSlot(this)">10:00 AM</div>
+                                    <div class="time-slot" onclick="selectSlot(this)">11:30 AM</div>
+                                    <div class="time-slot disabled">01:00 PM</div>
+                                    <div class="time-slot disabled">02:30 PM</div>
+                                    <div class="time-slot" onclick="selectSlot(this)">04:00 PM</div>
+                                </div>
+                            </div>
+
+                            <label style="font-size: 0.9rem; color: var(--text-dim); margin-bottom: 5px; display: block;">Message (Optional)</label>
+                            <textarea id="contact-message" class="form-control" placeholder="Type your message here..."></textarea>
+
+                            <button class="btn-glow" style="width: 100%;" onclick="submitContactRequest()">Submit Request</button>
+                        </div>
+
+                        <!-- Request Status -->
+                        <div class="glass p-6 animated-appear" style="animation-delay: 0.1s;">
+                            <h3 style="margin-bottom: 1rem;"><i class="fas fa-tasks" style="color: var(--yellow);"></i> Request Status</h3>
+                            <div id="request-status-list" class="flex-col gap-4">
+                                <div class="flex items-center justify-between" style="padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                                    <div>
+                                        <div style="font-weight: 600;">Maths PTM</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-dim);">Requested for 10:00 AM</div>
+                                    </div>
+                                    <span class="status-badge pending">Pending</span>
+                                </div>
+                                <div class="flex items-center justify-between" style="padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                                    <div>
+                                        <div style="font-weight: 600;">Science Inquiry</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-dim);">Live Chat</div>
+                                    </div>
+                                    <span class="status-badge accepted">Accepted</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Chat & Meetings -->
+                    <div class="flex-col gap-6">
+                        <!-- Upcoming Meetings -->
+                        <div class="glass p-6 animated-appear" style="animation-delay: 0.2s;">
+                            <h3 style="margin-bottom: 1rem;"><i class="fas fa-video" style="color: var(--purple);"></i> Upcoming Meetings</h3>
+                            <div id="upcoming-meetings-list">
+                                <div class="meeting-card">
+                                    <div>
+                                        <div style="font-weight: bold; font-size: 1.1rem; color: var(--cyan);">English PTM</div>
+                                        <div style="font-size: 0.9rem; color: var(--text-dim); margin-top: 5px;"><i class="far fa-calendar"></i> Tomorrow, 04:00 PM</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-dim);"><i class="far fa-user"></i> Ms. R. Iyer</div>
+                                    </div>
+                                    <button class="icon-btn" style="background: var(--purple); border-color: var(--purple);" title="Join Meeting" onclick="alert('Launching Virtual Meeting Room...')"><i class="fas fa-phone-alt"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Chat -->
+                        <div class="glass p-6 animated-appear" style="animation-delay: 0.3s; flex: 1; display: flex; flex-direction: column;">
+                            <h3 style="margin-bottom: 1rem;"><i class="fas fa-comments" style="color: var(--blue);"></i> Live Chat</h3>
+                            <div class="chat-container">
+                                <div class="chat-messages" id="chat-messages-box">
+                                    <div class="chat-bubble teacher">
+                                        Hello! How can I help you regarding Arjun's progress?
+                                        <div class="chat-time">09:41 AM</div>
+                                    </div>
+                                </div>
+                                <div class="chat-input-area">
+                                    <input type="text" id="chat-input" class="form-control" placeholder="Type a message..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                                    <button class="chat-btn" onclick="sendChatMessage()"><i class="fas fa-paper-plane"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-content">
+            <div class="close-modal" onclick="closeModal()">✕</div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Notification Panel -->
+    <div id="notification-panel">
+        <button class="close-btn" onclick="toggleNotifications()">&times;</button>
+        <h2 style="margin-bottom: 20px;"><i class="fas fa-bell"></i> Notifications</h2>
+        <div class="insights-list">
+            <div class="insight-item positive"><i class="fas fa-arrow-up"></i> <b>Marks Improved:</b> Science Monthly Test scored 92/100.</div>
+            <div class="insight-item danger"><i class="fas fa-exclamation-triangle"></i> <b>Low Performance Warning:</b> Physics assignment score dropped by 12%.</div>
+            <div class="insight-item warning"><i class="fas fa-calendar-alt"></i> <b>Attendance Alert:</b> Student missed first period on Monday.</div>
+        </div>
+    </div>
+
+    <!-- MAIN SCRIPT -->
+    <script>
+        // MOCK DATA JSON - DATABASE OF MULTIPLE PARENTS/STUDENTS
+        const USERS_DB = [
+            {
+                username: "STU-01", password: "parent123",
+                parentName: "Mr. Sharma", studentName: "Arjun Sharma", class: "10A", avatar: "AS",
+                overallPerf: 88.5, attendance: 96, rank: 3, totalStudents: 45,
+                history: [75, 80, 78, 85, 84, 88.5],
+                subjects: { "Math": 94, "Science": 92, "English": 85, "History": 80, "Physics": 78, "CompSci": 98 },
+                insights: [
+                    '<i class="fas fa-arrow-trend-up"></i> <b>Strong Subject:</b> Performance linearly improving in Mathematics.',
+                    '<i class="fas fa-triangle-exclamation"></i> <b>Risk Alert:</b> High risk of low performance in Physics.',
+                    '<i class="fas fa-lightbulb"></i> <b>Predictive:</b> Expected overall score next month is 91% based on current trend.'
+                ],
+                remarks: {
+                    en: "Arjun is performing exceptionally well in Mathematics, showing a steady upward trend. However, Physics requires immediate attention as scores have dropped recently. Overall progress is satisfactory, but consistent effort is needed in weaker subjects.",
+                    hi: "अर्जुन गणित में बहुत अच्छा प्रदर्शन कर रहा है और लगातार सुधार दिखा रहा है। हालांकि, भौतिकी पर तुरंत ध्यान देने की आवश्यकता है क्योंकि हाल ही में अंकों में गिरावट आई है। समग्र प्रगति संतोषजनक है, लेकिन कमजोर विषयों में लगातार प्रयास की आवश्यकता है।"
+                }
+            },
+            {
+                username: "STU-02", password: "parent456",
+                parentName: "Mrs. Gupta", studentName: "Riya Gupta", class: "8B", avatar: "RG",
+                overallPerf: 95.2, attendance: 100, rank: 1, totalStudents: 42,
+                history: [88, 90, 89, 93, 94, 95.2],
+                subjects: { "Math": 98, "Science": 95, "English": 90, "History": 88, "Physics": 94, "CompSci": 99 },
+                insights: [
+                    '<i class="fas fa-star"></i> <b>Excellent:</b> Top of the class! Maintaining perfect scores in Math and CompSci.',
+                    '<i class="fas fa-check-circle"></i> <b>Consistency:</b> 100% Attendance streak maintained.',
+                    '<i class="fas fa-lightbulb"></i> <b>Suggestion:</b> Encourage Advanced Physics courses for next term.'
+                ],
+                remarks: {
+                    en: "Riya is an outstanding student, maintaining top ranks and perfect attendance. Her performance in Mathematics and Computer Science is highly commendable. She is consistent and focused.",
+                    hi: "रिया एक उत्कृष्ट छात्रा है, जो शीर्ष रैंक और सही उपस्थिति बनाए रखती है। गणित और कंप्यूटर विज्ञान में उनका प्रदर्शन अत्यधिक सराहनीय है। वह निरंतर और केंद्रित है।"
+                }
+            },
+            {
+                username: "STU-03", password: "parent789",
+                parentName: "Mr. Verma", studentName: "Karan Verma", class: "9C", avatar: "KV",
+                overallPerf: 74.0, attendance: 82, rank: 25, totalStudents: 40,
+                history: [85, 80, 76, 75, 72, 74.0],
+                subjects: { "Math": 65, "Science": 72, "English": 88, "History": 90, "Physics": 60, "CompSci": 78 },
+                insights: [
+                    '<i class="fas fa-exclamation-triangle"></i> <b>Risk Alert:</b> Major decline in Mathematics and Physics scores.',
+                    '<i class="fas fa-calendar-times"></i> <b>Action Needed:</b> Attendance is at 82%. Needs improvement to meet requirements.',
+                    '<i class="fas fa-star"></i> <b>Strong Subject:</b> Doing wonderfully in History and English!'
+                ],
+                remarks: {
+                    en: "Karan's attendance is a concern and directly impacting his scores in Mathematics and Physics. He is doing great in History and English, but needs a structured study plan for core science subjects.",
+                    hi: "करण की उपस्थिति चिंता का विषय है और गणित और भौतिकी में उसके अंकों को सीधे प्रभावित कर रही है। वह इतिहास और अंग्रेजी में बहुत अच्छा कर रहा है, लेकिन मुख्य विज्ञान विषयों के लिए एक संरचित अध्ययन योजना की आवश्यकता है।"
+                }
+            }
+        ];
+
+        let DUMMY_DATA = null;
+
+        let loginReqId; // Store animation frame to cancel later
+
+        // Page Load Sequence
+        window.onload = () => {
+            setTimeout(() => {
+                const loader = document.getElementById('page-loader');
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    document.getElementById('login-screen').style.display = 'flex';
+                }, 800);
+            }, 1500); // 1.5s loading screen
+            createParticles();
+            init3DWaveGraph(); // Background wave for the charts
+            initLogin3DObjects(); // 3D Floating Books/Pens Setup
+        };
+
+        /* ================== BACKGROUND PARTICLES ================== */
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for(let i=0; i<35; i++) {
+                const p = document.createElement('div'); p.classList.add('particle');
+                p.style.width = p.style.height = (Math.random() * 5 + 2) + 'px';
+                p.style.left = Math.random() * 100 + 'vw';
+                p.style.animationDuration = (Math.random() * 5 + 5) + 's';
+                p.style.animationDelay = (Math.random() * 5) + 's';
+                container.appendChild(p);
+            }
+        }
+
+        /* ================== GLASS TILT EFFECTS (Vanilla 3D Hover) ================== */
+        document.querySelectorAll('.glass').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+                const xc = x - rect.width/2; const yc = y - rect.height/2;
+                card.style.transform = `perspective(1000px) rotateY(${xc/30}deg) rotateX(${-yc/30}deg) scale3d(1.02, 1.02, 1.02)`;
+            });
+            card.addEventListener('mouseleave', () => { card.style.transform = ` perspective(1000px) rotateY(0deg) rotateX(0deg) scale3d(1, 1, 1)`; });
+        });
+
+        /* ================== BUTTON RIPPLES ================== */
+        document.querySelectorAll('.btn-glow').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                let rect = this.getBoundingClientRect(); let ripple = document.createElement('span');
+                ripple.className = 'btn-ripple';
+                ripple.style.left = (e.clientX - rect.left) + 'px'; ripple.style.top = (e.clientY - rect.top) + 'px';
+                ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+                this.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            });
+        });
+
+        /* ================== LOGIN INTERACTION ================== */
+        const folder = document.getElementById('report-folder');
+        folder.addEventListener('click', () => {
+            if(!folder.classList.contains('folder-open')) {
+                folder.classList.remove('closed'); // stop floating
+                folder.classList.add('folder-open');
+                document.getElementById('loginForm').style.display = 'flex';
+                setTimeout(()=>{ document.getElementById('l-roll').focus(); }, 1200);
+            }
+        });
+
+        function executeLogin(e) {
+            e.stopPropagation();
+            const roll = document.getElementById('l-roll').value; const pass = document.getElementById('l-pass').value;
+            if (!roll || !pass) return alert("Please enter both Username and Password.");
+            
+            // Check Database
+            let user = USERS_DB.find(u => u.username === roll && u.password === pass);
+            
+            if (!user) {
+                // ALLOW ANY ENTRY TO LOGIN (As requested)
+                // If username matches someone in database, use them. Otherwise, default to Arjun.
+                user = USERS_DB.find(u => u.username === roll) || USERS_DB[0];
+            }
+            
+            DUMMY_DATA = user; // Assign active user data
+            
+            const btn = e.target; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...'; btn.style.pointerEvents = 'none';
+
+            // Populate dashboard fields before revealing
+            document.getElementById('parent-name').innerText = `Welcome back, ${user.parentName}`;
+            document.getElementById('student-info').innerHTML = `Student: <b>${user.studentName}</b> (Class ${user.class}) | Last login: <span class="status-dot"></span> Just now`;
+            document.getElementById('avatar-text').innerText = user.avatar;
+            document.getElementById('sel-stu1').innerText = user.studentName;
+            
+            // Update Stat targets
+            document.querySelectorAll('.counter')[0].setAttribute('data-target', user.overallPerf);
+            document.querySelectorAll('.counter')[1].setAttribute('data-target', user.rank);
+            document.querySelectorAll('.counter')[2].setAttribute('data-target', user.attendance);
+            document.querySelectorAll('.stat-card p')[1].innerText = `Out of ${user.totalStudents} students`;
+            
+            // Analytics UI updates removed
+
+            // Populate Remarks
+            updateRemarksLanguage();
+
+            setTimeout(() => {
+                const loginScreen = document.getElementById('login-screen');
+                const mainApp = document.getElementById('main-app');
+                const loginBg = document.getElementById('login-3d-bg');
+                
+                loginScreen.style.transform = 'scale(1.2)'; loginScreen.style.opacity = '0';
+                if (loginBg) loginBg.style.opacity = '0';
+                
+                setTimeout(() => {
+                    loginScreen.style.display = 'none';
+                    if (loginBg) { loginBg.remove(); cancelAnimationFrame(loginReqId); }
+                    
+                    mainApp.classList.add('active');
+                    setTimeout(() => { document.getElementById('cp-perf').style.setProperty('--p', DUMMY_DATA.overallPerf + '%'); document.getElementById('cp-att').style.setProperty('--p', DUMMY_DATA.attendance + '%'); }, 500);
+                    try { initThreeJSCube(); } catch(err) { console.error(err); }
+                    window.chartsInited = false; // Delayed initialization for Performance tab
+                    animateCounters();
+                }, 800);
+            }, 800);
+        }
+
+        function toggleNotifications() { document.getElementById('notification-panel').classList.toggle('open'); }
+
+        function switchView(viewId, element) {
+            document.querySelectorAll('.view-section').forEach(sec => sec.style.display = 'none');
+            const targetView = document.getElementById(viewId);
+            if(targetView) targetView.style.display = 'block';
+            
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            if(element) element.classList.add('active');
+            
+            if (viewId === 'view-performance') {
+                if (!window.chartsInited) {
+                    initPremiumCharts();
+                    window.chartsInited = true;
+                }
+            }
+        }
+
+        // Details Modal
+        function showDetails(type) {
+            const modal = document.getElementById('detailModal');
+            const body = document.getElementById('modalBody');
+            const user = DUMMY_DATA;
+            let content = '';
+
+            if(type === 'perf') {
+                content = `
+                    <div class="modal-header">Subject Performance</div>
+                    ${Object.entries(user.subjects).map(([sub, score]) => `
+                        <div class="modal-item"><span>${sub}</span><span style="color:var(--cyan)">${score}%</span></div>
+                    `).join('')}
+                `;
+            } else if(type === 'rank') {
+                content = `
+                    <div class="modal-header">Class Standings</div>
+                    <div class="modal-item"><span>Current Rank</span><span>#${user.rank}</span></div>
+                    <div class="modal-item"><span>Class Strength</span><span>${user.totalStudents}</span></div>
+                    <div class="modal-item"><span>Average Mastery</span><span>${user.overallPerf}%</span></div>
+                `;
+            } else if(type === 'att') {
+                content = `
+                    <div class="modal-header">Attendance Details</div>
+                    <div class="modal-item"><span>Total Working Days</span><span>150</span></div>
+                    <div class="modal-item"><span>Days Present</span><span>144</span></div>
+                    <div class="modal-item"><span>Attendance Rate</span><span>${user.attendance}%</span></div>
+                `;
+            }
+
+            body.innerHTML = content;
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        /* ================== ANIMATE COUNTERS ================== */
+        function animateCounters() {
+            document.querySelectorAll('.counter').forEach(c => {
+                const target = +c.getAttribute('data-target');
+                const isFloat = target % 1 !== 0; let start = 0; const step = target / 30;
+                const update = () => {
+                    start += step;
+                    if(start < target) { c.innerText = isFloat ? start.toFixed(1) : Math.ceil(start); requestAnimationFrame(update); }
+                    else { c.innerText = target; }
+                }; update();
+            });
+        }
+
+        /* ================== THREE.JS CORE 3D VISUAL (WOW ELEMENT) ================== */
+        let scene, camera, renderer, cube, controls;
+        function initThreeJSCube() {
+            const container = document.getElementById('cube-container');
+            if(!container) return;
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true; // Shadows Enabled
+            container.appendChild(renderer.domElement);
+
+            // Smooth Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            const directional = new THREE.DirectionalLight(0xffffff, 1.2);
+            directional.position.set(5, 10, 5); directional.castShadow = true;
+            scene.add(directional);
+            // Changed point lights to Cyan and Green
+            const point1 = new THREE.PointLight(0x22D3EE, 2.0, 50); point1.position.set(-5, 5, 5); scene.add(point1);
+            const point2 = new THREE.PointLight(0x22C55E, 2.0, 50); point2.position.set(5, -5, -5); scene.add(point2);
+
+            // Canvas Textures Faces
+            const mData = DUMMY_DATA;
+            const materials = [
+                createFaceMaterial('Overall Stats', mData.overallPerf + '%', '#FFFFFF', '#3B82F6'), // Right
+                createFaceMaterial('Class Ranking', '#' + mData.rank, '#F8FAFC', '#F59E0B'), // Left
+                createFaceMaterial('Best Subject', Object.entries(mData.subjects).sort((a,b)=>b[1]-a[1])[0][0]+': '+Object.entries(mData.subjects).sort((a,b)=>b[1]-a[1])[0][1], '#FFFFFF', '#22C55E'), // Top dynamically fetch best 
+                createFaceMaterial('Weak Subject', Object.entries(mData.subjects).sort((a,b)=>a[1]-b[1])[0][0]+': '+Object.entries(mData.subjects).sort((a,b)=>a[1]-b[1])[0][1], '#FFFFFF', '#EF4444'), // Bottom dynamically fetch weak
+                createFaceMaterial('3D Dashboard', mData.studentName, '#F8FAFC', '#0F172A', true), // Front
+                createFaceMaterial('Attendance', mData.attendance + '%', '#FFFFFF', '#8B5CF6') // Back
+            ];
+
+            const geometry = new THREE.BoxGeometry(3, 3, 3);
+            cube = new THREE.Mesh(geometry, materials);
+            cube.castShadow = true; cube.receiveShadow = true;
+            scene.add(cube);
+            
+            // Neon Edges - Changed colour to bright Cyan
+            const edges = new THREE.EdgesGeometry(geometry);
+            const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x22D3EE, transparent: true, opacity: 1.0, linewidth: 2 }));
+            cube.add(line);
+
+            camera.position.z = 7;
+
+            // Interactive Controls (Rotate/Hover/Zoom)
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableZoom = true; controls.enablePan = false; controls.autoRotate = true; controls.autoRotateSpeed = 2.0;
+            controls.minDistance = 4; controls.maxDistance = 10;
+
+            function animateCube() { requestAnimationFrame(animateCube); controls.update(); renderer.render(scene, camera); }
+            animateCube();
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+
+        /* ================== LOGIN 3D FLOATING ITEMS ================== */
+        function initLogin3DObjects() {
+            const canvas = document.getElementById('login-3d-bg');
+            if(!canvas) return;
+            const lScene = new THREE.Scene();
+            const lCamera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+            const lRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+            lRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Lighting
+            lScene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dl1 = new THREE.DirectionalLight(0xffffff, 0.8); dl1.position.set(5, 10, -5); lScene.add(dl1);
+            const dl2 = new THREE.DirectionalLight(0x22D3EE, 1); dl2.position.set(-5, -5, 5); lScene.add(dl2);
+
+            const items = [];
+
+            // 1. Create Book
+            const createBook = () => {
+                const grp = new THREE.Group();
+                const cover = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.2, 0.35), new THREE.MeshStandardMaterial({color: Math.random()>0.5?0x8B5CF6:0x3B82F6}));
+                const pages = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.1, 0.36), new THREE.MeshStandardMaterial({color: 0xffffff}));
+                pages.position.x = 0.05; grp.add(cover, pages); return grp;
+            };
+
+            // 2. Create Futuristic Pen
+            const createPen = () => {
+                const grp = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.8, 12), new THREE.MeshStandardMaterial({color: 0x22D3EE, metalness: 0.8, roughness: 0.2}));
+                const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 12), new THREE.MeshStandardMaterial({color: 0x111827}));
+                tip.position.y = -1.05; grp.add(body, tip); return grp;
+            };
+
+            // 3. Create Basic Pencil
+            const createPencil = () => {
+                const grp = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.5, 6), new THREE.MeshStandardMaterial({color: 0xF59E0B}));
+                const tip = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.4, 6), new THREE.MeshStandardMaterial({color: 0xe5e7eb}));
+                const lead = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.15, 6), new THREE.MeshStandardMaterial({color: 0x000}));
+                tip.position.y = -0.95; lead.position.y = -1.1; grp.add(body, tip, lead); return grp;
+            };
+
+            // Generate 20 floating stationaries
+            for(let i=0; i<20; i++) {
+                let mesh;
+                const r = Math.random();
+                if(r < 0.33) mesh = createBook();
+                else if(r < 0.66) mesh = createPen();
+                else mesh = createPencil();
+
+                // Spread out across the screen
+                mesh.position.set( (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 20, - (Math.random() * 15 + 5) );
+                
+                // Save animation data
+                mesh.userData = { 
+                    rx: (Math.random() - 0.5) * 0.02, ry: (Math.random() - 0.5) * 0.02,
+                    oy: mesh.position.y, offset: Math.random() * Math.PI * 2 
+                };
+                items.push(mesh); lScene.add(mesh);
+            }
+
+            lCamera.position.z = 5;
+            let time = 0;
+            
+            function animate() {
+                loginReqId = requestAnimationFrame(animate);
+                time += 0.015;
+                items.forEach(obj => {
+                    obj.rotation.x += obj.userData.rx;
+                    obj.rotation.y += obj.userData.ry;
+                    obj.position.y = obj.userData.oy + Math.sin(time + obj.userData.offset) * 1.5;
+                });
+                lRenderer.render(lScene, lCamera);
+            }
+            animate();
+
+            window.addEventListener('resize', () => {
+                if(!canvas || canvas.style.opacity === '0') return;
+                lCamera.aspect = window.innerWidth / window.innerHeight; lCamera.updateProjectionMatrix();
+                lRenderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function createFaceMaterial(title, value, bg, color, isCover=false) {
+            const canvas = document.createElement('canvas'); canvas.width = canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = bg; ctx.fillRect(0, 0, 512, 512); // bg
+            ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 2; // grid
+            for(let i=0; i<512; i+=64){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,512); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(512,i); ctx.stroke(); }
+            ctx.strokeStyle = color; ctx.lineWidth = 15; ctx.strokeRect(0, 0, 512, 512); // border
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            
+            if(isCover) {
+                ctx.fillStyle = color; ctx.font = 'bold 50px Outfit'; ctx.fillText(title, 256, 220);
+                ctx.fillStyle = '#64748B'; ctx.font = '600 35px Outfit'; ctx.fillText(value, 256, 290);
+            } else {
+                ctx.fillStyle = '#64748B'; ctx.font = '600 45px Outfit'; ctx.fillText(title, 256, 180);
+                ctx.fillStyle = color; ctx.font = 'bold 90px Outfit'; ctx.fillText(value, 256, 280);
+            }
+            return new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(canvas), roughness: 0.1, metalness: 0.1 });
+        }
+
+        /* ================== ADVANCED 3D WAVE GRAPH ================== */
+        function init3DWaveGraph() {
+            const container = document.getElementById('wave-container');
+            if(!container) return;
+            const wScene = new THREE.Scene();
+            const wCamera = new THREE.PerspectiveCamera(50, container.clientWidth/container.clientHeight, 0.1, 100);
+            const wRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+            wRenderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(wRenderer.domElement);
+
+            const geometry = new THREE.PlaneGeometry(20, 10, 40, 20);
+            const material = new THREE.MeshBasicMaterial({ color: 0x3B82F6, wireframe: true, transparent: true, opacity: 0.3 });
+            const plane = new THREE.Mesh(geometry, material);
+            plane.rotation.x = -Math.PI / 2.5;
+            wScene.add(plane);
+            wCamera.position.z = 5; wCamera.position.y = 2;
+
+            let time = 0;
+            function animateWave() {
+                requestAnimationFrame(animateWave);
+                time += 0.05;
+                const pos = geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = geometry.attributes.position.getX(i);
+                    const y = geometry.attributes.position.getY(i);
+                    const z = Math.sin(x*0.5 + time) * 0.5 + Math.cos(y*0.5 + time) * 0.5;
+                    pos.setZ(i, z);
+                }
+                pos.needsUpdate = true;
+                wRenderer.render(wScene, wCamera);
+            }
+            animateWave();
+        }
+
+        /* ================== GRAPHS & ANALYTICS ================== */
+        function initCharts() {
+            // Consistency Trend (3D Bars)
+            const pChart = document.getElementById('progressChart');
+            pChart.innerHTML = '';
+            const labels = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            DUMMY_DATA.history.forEach((val, i) => {
+                const color = i === 0 ? '#3B82F6' : (val >= DUMMY_DATA.history[i-1] ? '#22C55E' : '#EF4444');
+                pChart.innerHTML += `
+                    <div class="bar-wrapper">
+                        <div class="bar-val" style="--c: ${color}">${val}</div>
+                        <div class="bar-3d" style="--h: ${val}%; --c: ${color};"><div class="face front"></div><div class="face back"></div><div class="face left"></div><div class="face right"></div><div class="face top"></div></div>
+                        <div class="bar-label">${labels[i]}</div>
+                    </div>`;
+            });
+
+            // Performance Heatmap (Subject 3D Bars)
+            const sChart = document.getElementById('subjectChart');
+            sChart.innerHTML = '';
+            Object.entries(DUMMY_DATA.subjects).forEach(([subj, val]) => {
+                let color = '#3B82F6';
+                if(val >= 90) color = '#22C55E'; else if(val <= 80) color = '#EF4444'; else color = '#F59E0B';
+                sChart.innerHTML += `
+                    <div class="bar-wrapper">
+                        <div class="bar-val" style="--c: ${color}">${val}</div>
+                        <div class="bar-3d" style="--h: ${val}%; --c: ${color};"><div class="face front"></div><div class="face back"></div><div class="face left"></div><div class="face right"></div><div class="face top"></div></div>
+                        <div class="bar-label" style="font-size: 0.7rem; writing-mode: vertical-rl; transform: rotate(180deg); margin-top: 5px;">${subj}</div>
+                    </div>`;
+            });
+        }
+
+        /* ================== REMARKS & LANGUAGE TOGGLE ================== */
+        function toggleLanguage() {
+            const isHindi = document.getElementById('lang-switch').checked;
+            document.getElementById('lang-eng').classList.toggle('active', !isHindi);
+            document.getElementById('lang-hin').classList.toggle('active', isHindi);
+            
+            const remarksContent = document.getElementById('remarks-content');
+            remarksContent.style.opacity = '0';
+            setTimeout(() => {
+                updateRemarksLanguage();
+                remarksContent.style.opacity = '1';
+            }, 300);
+        }
+
+        function updateRemarksLanguage() {
+            if (!DUMMY_DATA || !DUMMY_DATA.remarks) return;
+            const isHindi = document.getElementById('lang-switch').checked;
+            const remarksContent = document.getElementById('remarks-content');
+            const remarkText = isHindi ? DUMMY_DATA.remarks.hi : DUMMY_DATA.remarks.en;
+            remarksContent.innerHTML = `<i class="fas fa-quote-left" style="color: var(--cyan); opacity: 0.5; margin-right: 10px; font-size: 1.5rem; vertical-align: top;"></i> <span style="font-size: 1.15rem; letter-spacing: 0.5px;">${remarkText}</span>`;
+        }
+
+        /* ================== REAL-TIME SIMULATION (DEMO MODE) ================== */
+        function simulateUpdates() {
+            // Live counters
+            document.querySelectorAll('.counter').forEach(c => c.innerText = '0'); animateCounters();
+            
+            // Spike in chart
+            if(progressChartObj){ progressChartObj.data.datasets[0].data[5] = 92; progressChartObj.update(); }
+            if(subjectChartObj) { subjectChartObj.data.datasets[0].data[4] = 85; subjectChartObj.update(); }
+            document.getElementById('cp-perf').style.setProperty('--p', '92%');
+            document.getElementById('cp-perf').querySelector('span').innerText = '92%';
+
+            // Simulation Alert
+            const panel = document.querySelector('#notification-panel .insights-list');
+            const newInsight = document.createElement('div');
+            newInsight.className = 'insight-item positive animated-appear';
+            newInsight.innerHTML = '<i class="fas fa-satellite-dish"></i> <b>Live Update:</b> Physics score just improved by 7% in recent mock exam!';
+            if(panel) panel.insertBefore(newInsight, panel.firstChild);
+            
+            // Open panel
+            document.getElementById('notification-panel').classList.add('open');
+            setTimeout(()=> document.getElementById('notification-panel').classList.remove('open'), 4000);
+        }
+        /* ================== PREMIUM CHARTS & UI ================== */
+        let progressChartObj = null;
+        let subjectChartObj = null;
+
+        function initPremiumCharts() {
+            if(!DUMMY_DATA) return;
+            
+            Chart.defaults.color = 'rgba(255, 255, 255, 0.7)';
+            Chart.defaults.font.family = "'Inter', sans-serif";
+
+            // Render Line Chart (Consistency)
+            const ctxLine = document.getElementById('premiumLineChart').getContext('2d');
+            const gradLine = ctxLine.createLinearGradient(0, 0, 0, 350);
+            gradLine.addColorStop(0, 'rgba(34, 211, 238, 0.5)'); // Cyan
+            gradLine.addColorStop(1, 'rgba(34, 211, 238, 0)');
+
+            progressChartObj = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: ['July', 'August', 'September', 'October', 'November', 'December'],
+                    datasets: [{
+                        label: 'Overall %',
+                        data: DUMMY_DATA.history,
+                        borderColor: '#22D3EE',
+                        backgroundColor: gradLine,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#0A0F1E',
+                        pointBorderColor: '#22D3EE',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        fill: true,
+                        tension: 0.4 // Smooth curves
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { backgroundColor: 'rgba(5, 8, 15, 0.9)', titleColor: '#22D3EE', padding: 12, borderColor: '#22D3EE', borderWidth: 1 }
+                    },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, min: 50, max: 100 },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Render Bar Chart (Subjects)
+            const subjects = Object.keys(DUMMY_DATA.subjects);
+            const scores = Object.values(DUMMY_DATA.subjects);
+            
+            const ctxBar = document.getElementById('premiumBarChart').getContext('2d');
+            
+            subjectChartObj = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: subjects,
+                    datasets: [{
+                        label: 'Subject Score %',
+                        data: scores,
+                        backgroundColor: subjects.map(s => {
+                            let score = DUMMY_DATA.subjects[s];
+                            if(score >= 90) return 'rgba(34, 197, 94, 0.8)'; // Green
+                            if(score <= 80) return 'rgba(239, 68, 68, 0.8)'; // Red
+                            return 'rgba(59, 130, 246, 0.8)'; // Blue
+                        }),
+                        hoverBackgroundColor: subjects.map(s => {
+                            let score = DUMMY_DATA.subjects[s];
+                            if(score >= 90) return '#22C55E';
+                            if(score <= 80) return '#EF4444';
+                            return '#3B82F6';
+                        }),
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { backgroundColor: 'rgba(5, 8, 15, 0.9)', titleColor: '#8B5CF6', padding: 12, borderColor: '#8B5CF6', borderWidth: 1 }
+                    },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, min: 50, max: 100 },
+                        x: { grid: { display: false }, ticks: { font: { size: 14, weight: 'bold' } } }
+                    }
+                }
+            });
+
+            // Render Subject Detail Cards
+            const container = document.getElementById('subject-cards-container');
+            container.innerHTML = '';
+            
+            const icons = {
+                "Math": "fa-calculator", "Science": "fa-flask", "English": "fa-book", 
+                "History": "fa-landmark", "Physics": "fa-atom", "CompSci": "fa-laptop-code"
+            };
+
+            subjects.forEach(sub => {
+                const score = DUMMY_DATA.subjects[sub];
+                let colorHex = '#3B82F6';
+                if(score >= 90) colorHex = '#22C55E';
+                else if(score <= 80) colorHex = '#EF4444';
+
+                const icon = icons[sub] || "fa-book-open";
+
+                const cardHTML = `
+                    <div class="subject-card glass">
+                        <i class="fas ${icon} subject-icon" style="color: ${colorHex}; filter: drop-shadow(0 0 10px ${colorHex});"></i>
+                        <h4 style="font-size: 1.2rem; margin-bottom: 10px; color: #fff;">${sub}</h4>
+                        <div style="font-size: 2.2rem; font-weight: 800; color: ${colorHex}; margin-bottom: 5px;">${score}%</div>
+                        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-top: 15px;">
+                            <div style="width: ${score}%; height: 100%; background: ${colorHex}; box-shadow: 0 0 10px ${colorHex};"></div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHTML;
+            });
+            
+            // Add 3D Tilt effect to new cards and charts
+            const elementsToTilt = document.querySelectorAll('#subject-cards-container .subject-card, .premium-chart-container');
+            elementsToTilt.forEach(el => {
+                el.addEventListener('mousemove', e => {
+                    const rect = el.getBoundingClientRect();
+                    const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+                    const xc = x - rect.width/2; const yc = y - rect.height/2;
+                    el.style.transform = `perspective(1000px) rotateY(${xc/40}deg) rotateX(${-yc/40}deg) scale3d(1.02, 1.02, 1.02)`;
+                });
+                el.addEventListener('mouseleave', () => { el.style.transform = `perspective(1000px) rotateY(0deg) rotateX(0deg) scale3d(1, 1, 1)`; });
+            });
+        }
+
+        /* ================== CONTACT & PTM LOGIC ================== */
+        function togglePtmSlots() {
+            const type = document.getElementById('contact-type-select').value;
+            const slotSection = document.getElementById('ptm-slot-section');
+            if(type === 'ptm') {
+                slotSection.style.display = 'block';
+            } else {
+                slotSection.style.display = 'none';
+            }
+        }
+
+        function selectSlot(element) {
+            if(element.classList.contains('disabled')) return;
+            document.querySelectorAll('.time-slot').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+
+        function submitContactRequest() {
+            const subject = document.getElementById('contact-teacher-select').options[document.getElementById('contact-teacher-select').selectedIndex].text;
+            const type = document.getElementById('contact-type-select').value;
+            const msg = document.getElementById('contact-message').value;
+            let slot = '';
+            
+            if(type === 'ptm') {
+                const selectedSlotEl = document.querySelector('.time-slot.selected');
+                if(!selectedSlotEl) { alert('Please select a time slot for the PTM.'); return; }
+                slot = selectedSlotEl.innerText;
+            }
+
+            // Create new request item
+            const reqList = document.getElementById('request-status-list');
+            const newReq = document.createElement('div');
+            newReq.className = 'flex items-center justify-between animated-appear';
+            newReq.style.padding = '10px'; newReq.style.background = 'rgba(0,0,0,0.3)'; newReq.style.borderRadius = '8px';
+            
+            const reqTitle = type === 'ptm' ? 'PTM Request' : 'Live Chat Request';
+            const reqDesc = type === 'ptm' ? `Requested for ${slot}` : 'Awaiting Teacher';
+            
+            newReq.innerHTML = `
+                <div>
+                    <div style="font-weight: 600;">${subject.split(' ')[0]} - ${reqTitle}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-dim);">${reqDesc}</div>
+                </div>
+                <span class="status-badge pending">Pending</span>
+            `;
+            
+            reqList.insertBefore(newReq, reqList.firstChild);
+            
+            // Clear inputs
+            document.getElementById('contact-message').value = '';
+            if(type === 'ptm' && document.querySelector('.time-slot.selected')) {
+                document.querySelector('.time-slot.selected').classList.remove('selected');
+            }
+            
+            // Simulate teacher accepting chat/PTM
+            setTimeout(() => {
+                newReq.querySelector('.status-badge').className = 'status-badge accepted';
+                newReq.querySelector('.status-badge').innerText = 'Accepted';
+                
+                if(type === 'ptm') {
+                    // Add to upcoming meetings
+                    const meetingsList = document.getElementById('upcoming-meetings-list');
+                    const meetingCard = document.createElement('div');
+                    meetingCard.className = 'meeting-card animated-appear';
+                    meetingCard.innerHTML = `
+                        <div>
+                            <div style="font-weight: bold; font-size: 1.1rem; color: var(--cyan);">${subject.split(' ')[0]} PTM</div>
+                            <div style="font-size: 0.9rem; color: var(--text-dim); margin-top: 5px;"><i class="far fa-calendar"></i> Today, ${slot}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-dim);"><i class="far fa-user"></i> ${subject}</div>
+                        </div>
+                        <button class="icon-btn" style="background: var(--purple); border-color: var(--purple);" title="Join Meeting" onclick="alert('Launching Virtual Meeting Room...')"><i class="fas fa-phone-alt"></i></button>
+                    `;
+                    meetingsList.appendChild(meetingCard);
+                    
+                    // Trigger notification
+                    addNotification('Success', `Your PTM for ${subject.split(' ')[0]} at ${slot} has been confirmed.`, 'positive');
+                } else if(type === 'chat') {
+                    addNotification('Chat Started', `The teacher has joined the chat.`, 'positive');
+                    document.getElementById('chat-messages-box').innerHTML += `
+                        <div class="chat-bubble teacher">
+                            Hi there! I am available to chat now.
+                            <div class="chat-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                        </div>
+                    `;
+                    document.getElementById('chat-messages-box').scrollTop = document.getElementById('chat-messages-box').scrollHeight;
+                }
+            }, 3000);
+            
+            addNotification('Request Sent', 'Your request has been sent to the teacher.', 'positive');
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if(!msg) return;
+            
+            const chatBox = document.getElementById('chat-messages-box');
+            chatBox.innerHTML += `
+                <div class="chat-bubble parent">
+                    ${msg}
+                    <div class="chat-time" style="color: rgba(255,255,255,0.7);">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                </div>
+            `;
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Auto reply
+            setTimeout(() => {
+                chatBox.innerHTML += `
+                    <div class="chat-bubble teacher">
+                        Thank you for the message. I'll get back to you shortly.
+                        <div class="chat-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                    </div>
+                `;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 2000);
+        }
+
+        function addNotification(title, desc, type) {
+            const panel = document.querySelector('#notification-panel .insights-list');
+            const newInsight = document.createElement('div');
+            let icon = 'fa-info-circle';
+            if(type === 'positive') icon = 'fa-check-circle';
+            newInsight.className = `insight-item ${type} animated-appear`;
+            newInsight.innerHTML = `<i class="fas ${icon}"></i> <b>${title}:</b> ${desc}`;
+            if(panel) panel.insertBefore(newInsight, panel.firstChild);
+        }
+
+        /* ================== PDF EXPORT & SHARE ================== */
+        async function exportPDF(action) {
+            const contentArea = document.querySelector('.content');
+            
+            // Save original styles to restore later
+            const originalOverflow = contentArea.style.overflow;
+            const originalHeight = contentArea.style.height;
+            const mainApp = document.getElementById('main-app');
+            const originalMainHeight = mainApp.style.height;
+            
+            const topActions = document.querySelector('.top-actions');
+            const originalDisplay = topActions.style.display;
+            
+            const googleTranslate = document.getElementById('google_translate_element');
+            const gtDisplay = googleTranslate ? googleTranslate.style.display : '';
+
+            // Modify styles for proper rendering of the entire content
+            contentArea.style.overflow = 'visible';
+            contentArea.style.height = 'auto';
+            mainApp.style.height = 'auto';
+            topActions.style.display = 'none';
+            if (googleTranslate) googleTranslate.style.display = 'none';
+            
+            contentArea.classList.add('pdf-mode');
+            
+            const studentName = document.getElementById('sel-stu1').innerText || 'Student';
+            const filename = `${studentName}_Report.pdf`.replace(/ /g, '_');
+
+            const opt = {
+                margin:       [10, 10, 10, 10],
+                filename:     filename,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false, backgroundColor: '#0B0F1A' },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            const restoreStyles = () => {
+                contentArea.classList.remove('pdf-mode');
+                contentArea.style.overflow = originalOverflow;
+                contentArea.style.height = originalHeight;
+                mainApp.style.height = originalMainHeight;
+                topActions.style.display = originalDisplay;
+                if (googleTranslate) googleTranslate.style.display = gtDisplay;
+            };
+
+            try {
+                if (action === 'download') {
+                    await html2pdf().set(opt).from(contentArea).save();
+                } else if (action === 'share') {
+                    const pdfBlob = await html2pdf().set(opt).from(contentArea).output('blob');
+                    const file = new File([pdfBlob], filename, { type: "application/pdf" });
+                    
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            title: `${studentName}'s Performance Report`,
+                            text: `Please find the attached performance report for ${studentName}.`,
+                            files: [file]
+                        });
+                    } else {
+                        alert("Sharing files is not supported on this device/browser. Downloading the file instead.");
+                        await html2pdf().set(opt).from(contentArea).save();
+                    }
+                }
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                alert("An error occurred while generating the PDF.");
+            } finally {
+                restoreStyles();
+            }
+        }
+    </script>
+    <!-- Google Translate Script -->
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'en,hi,es,fr,de,zh-CN,ar,ta,te,bn,mr,gu,kn,ml', // Included Hindi, English and others
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+</body>
+</html>

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard - Absent Mind</title>
+    <link rel="stylesheet" href="teachers_style.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+
+<body>
+
+    <!-- AUDIO FOR LOADING COMPLETE -->
+    <audio id="success-sound"
+        src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=success-1-6297.mp3"
+        preload="auto"></audio>
+
+    <!-- LOADING SCREEN -->
+    <div id="loader-wrapper">
+        <div id="particles-js"></div>
+
+        <!-- True 3D Environment -->
+        <div class="loader-3d-scene" id="scene-3d">
+
+            <!-- ABSENT MIND 3D Title -->
+            <div class="absent-mind-title">
+                <h1>ABSENT MIND</h1>
+            </div>
+
+            <!-- Rotating HUD Gyro Rings -->
+            <div class="gyro-ring ring-x"></div>
+            <div class="gyro-ring ring-y"></div>
+            <div class="gyro-ring ring-z"></div>
+
+            <!-- Three.js Canvas for 3D Hologram -->
+            <canvas id="teacher-3d-canvas"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none;"></canvas>
+
+            <!-- Core Glowing Sphere -->
+            <div class="core-light" id="core-light"></div>
+        </div>
+
+        <!-- Teacher Console HUD Overlay -->
+        <div class="teacher-hud" id="teacher-hud">
+            <div class="hud-header">
+                <h1 class="hud-title tracking-in-expand" id="welcome-text">WELCOME TEACHER</h1>
+                <p class="hud-subtitle">Secure Neural Link Established</p>
+            </div>
+
+            <div class="hud-terminal">
+                <div class="terminal-line">> <span id="terminal-text">Initializing Teacher Matrices...</span></div>
+                <div class="hud-progress-container">
+                    <div class="hud-progress-bar" id="hud-progress-bar"></div>
+                </div>
+                <div class="hud-percent"><span id="loading-percent">0</span>%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard-wrapper" class="hidden">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="brand-icon-wrapper">
+                    <i class="fa-solid fa-brain glow-icon"></i>
+                </div>
+                <h2>Absent Mind</h2>
+            </div>
+            <ul class="nav-links">
+                <li class="active"><i class="fa-solid fa-chart-pie"></i> <span>Dashboard</span></li>
+                <li><i class="fa-solid fa-wand-magic-sparkles"></i> <span>AI Quiz Maker</span></li>
+                <li><i class="fa-solid fa-pen-to-square"></i> <span>Manual Quiz</span></li>
+                <li><i class="fa-solid fa-users"></i> <span>Students Matrix</span></li>
+            </ul>
+            <div class="sidebar-bottom">
+                <div class="theme-toggle" id="theme-btn">
+                    <i class="fa-solid fa-moon"></i>
+                    <span>Theme</span>
+                </div>
+                <div class="logout-btn">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Logout</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="welcome-msg">
+                    <h1>Welcome into the <span class="highlight-neon">Neural Net</span>, Professor!</h1>
+                    <p>Class performance synchronized. AI models are online.</p>
+                </div>
+                <div class="profile-area">
+                    <button class="nav-btn glow-btn"><i class="fa-solid fa-magnifying-glass"></i></button>
+                    <div class="notification-icon nav-btn glow-btn">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="badge prompt-pulse">3</span>
+                    </div>
+                    <div class="profile-pic holographic">
+                        <img src="https://ui-avatars.com/api/?name=Prof+Teacher&background=0D8ABC&color=fff"
+                            alt="Profile">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Smart Alerts Bar -->
+            <div class="smart-alerts-bar fade-in-up">
+                <div class="alert-item">
+                    <span class="alert-dot bg-danger glow-danger"></span>
+                    <span class="alert-text">2 Critical Students</span>
+                </div>
+                <div class="alert-item">
+                    <span class="alert-dot bg-warning glow-warning"></span>
+                    <span class="alert-text">2 Pending Requests</span>
+                </div>
+                <div class="alert-item">
+                    <span class="alert-dot bg-success glow-success"></span>
+                    <span class="alert-text">1 Upcoming PTM</span>
+                </div>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="quick-actions-bar fade-in-up delay-1">
+                <button class="qa-btn"><i class="fa-solid fa-plus text-secondary"></i> Create Quiz</button>
+                <button class="qa-btn"><i class="fa-solid fa-triangle-exclamation text-danger"></i> View Weak
+                    Students</button>
+                <button class="qa-btn"><i class="fa-regular fa-comments text-success"></i> Start Chat</button>
+                <button class="qa-btn"><i class="fa-solid fa-calendar-plus text-primary"></i> Schedule PTM</button>
+            </div>
+
+            <div class="dashboard-grid">
+
+                <!-- Performance Graph -->
+                <section class="glass-card stat-card span-3 fade-in-up delay-1">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-line text-cyan"></i> Learning Trajectory</h3>
+                        <div class="btn-group">
+                            <button class="btn-sm active">Weekly</button>
+                            <button class="btn-sm">Monthly</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </section>
+
+                <!-- AI Quiz Generator -->
+                <section class="glass-card ai-feature span-2 fade-in-up delay-2" id="ai-generator-section">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-microchip text-purple"></i> AI Quiz Synthesizer</h3>
+                        <span class="badge-ai pulse-glow">NPU ACTIVE</span>
+                    </div>
+                    <div class="ai-input-zone">
+                        <form id="ai-quiz-form" class="modern-form">
+                            <div class="form-row">
+                                <div class="form-group half">
+                                    <label>Subject Matrix</label>
+                                    <select id="ai-subject" class="glass-input">
+                                        <option value="Physics">Quantum Physics</option>
+                                        <option value="Math">Advanced Calculus</option>
+                                        <option value="Biology">Neurobiology</option>
+                                        <option value="ComputerScience">Algorithms</option>
+                                        <option value="Mixed">Mixed Subjects</option>
+                                    </select>
+                                </div>
+                                <div class="form-group half">
+                                    <label>Grade Level</label>
+                                    <select id="ai-class" class="glass-input">
+                                        <option>Level 9</option>
+                                        <option>Level 10</option>
+                                        <option>Level 11</option>
+                                        <option selected>Level 12</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Specific Focus Parameter (Topic)</label>
+                                <input type="text" id="ai-topic" class="glass-input"
+                                    placeholder="e.g. Thermodynamics, Neural Networks..." required>
+                            </div>
+                            <button type="submit" class="btn-primary glow-button massive-btn" id="btn-generate-ai">
+                                <i class="fa-solid fa-bolt"></i> Synthesize Quiz
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- AI Loading State -->
+                    <div id="ai-loading" class="hidden">
+                        <div class="hologram-spinner">
+                            <div class="hex"></div>
+                        </div>
+                        <p class="neon-text-small typed-text">Processing Natural Language Models...</p>
+                    </div>
+
+                    <!-- AI Result Zone -->
+                    <div id="ai-results" class="hidden custom-scrollbar">
+                        <div class="results-header">
+                            <h4>Generated Protocol</h4>
+                            <button class="btn-outline-sm"><i class="fa-solid fa-download"></i> Export</button>
+                        </div>
+                        <div id="quiz-list" class="quiz-container">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Manual Quiz Creation -->
+                <section class="glass-card span-1 fade-in-up delay-3" id="manual-quiz-section">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-keyboard text-accent"></i> Manual Input</h3>
+                    </div>
+                    <form id="manual-quiz-form" class="modern-form compact">
+                        <div class="form-group">
+                            <label>Query Data</label>
+                            <textarea class="glass-input" placeholder="Initiate question..." rows="3"
+                                required></textarea>
+                        </div>
+                        <div class="options-stack">
+                            <input type="text" class="glass-input sm" placeholder="A. Option" required>
+                            <input type="text" class="glass-input sm" placeholder="B. Option" required>
+                            <input type="text" class="glass-input sm" placeholder="C. Option" required>
+                            <input type="text" class="glass-input sm" placeholder="D. Option" required>
+                        </div>
+                        <button type="submit" class="btn-secondary w-100 mt-2">Append to Database</button>
+                    </form>
+                </section>
+
+                <!-- Today's Focus Panel -->
+                <section class="glass-card focus-card span-1 fade-in-up delay-3" id="focus-section">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-bullseye text-accent glow-icon"></i> Today's Focus</h3>
+                    </div>
+                    <div class="focus-list custom-scrollbar">
+                        <div class="focus-item">
+                            <div class="fi-info">
+                                <span class="fi-name">Oliver White</span>
+                                <span class="fi-action">Revise Quantum Physics</span>
+                            </div>
+                            <button class="btn-outline-sm btn-icon"><i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                        <div class="focus-item">
+                            <div class="fi-info">
+                                <span class="fi-name">Mia Brown</span>
+                                <span class="fi-action">Review missing assignments</span>
+                            </div>
+                            <button class="btn-outline-sm btn-icon"><i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Top Students Card -->
+                <section class="glass-card span-1 fade-in-up delay-4" id="top-students-section">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-crown text-warning glow-icon"></i> Overachievers</h3>
+                    </div>
+                    <div class="student-list custom-scrollbar" id="top-students-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </section>
+
+                <!-- Low Performing Alert Card -->
+                <section class="glass-card alert-card border-danger span-1 fade-in-up delay-5"
+                    id="low-students-section">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-triangle-exclamation text-danger blink-icon"></i> Critical Status</h3>
+                    </div>
+                    <div class="student-list custom-scrollbar" id="low-students-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </section>
+
+                <!-- Ranking System -->
+                <section class="glass-card span-1 fade-in-up delay-6" id="ranking-section">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-ranking-star text-cyan"></i> Live Leaderboard</h3>
+                    </div>
+                    <div class="ranking-list custom-scrollbar" id="live-ranking-list">
+                        <!-- Populated by JS -->
+                </section>
+
+                <!-- Parent Communication Section -->
+                <section class="glass-card span-4 fade-in-up delay-7" id="parent-communication-section">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-users-rays text-purple glow-icon"></i> Parent Communication & Meetings
+                        </h3>
+                    </div>
+
+                    <div class="parent-comm-grid">
+                        <!-- Contact Requests Panel -->
+                        <div class="comm-panel">
+                            <h4><i class="fa-solid fa-envelope-open-text text-accent"></i> Pending Requests</h4>
+                            <div class="request-list custom-scrollbar">
+                                <div class="request-card" style="border-left: 3px solid var(--warning);">
+                                    <div class="req-header">
+                                        <div class="req-user-info">
+                                            <img src="https://ui-avatars.com/api/?name=Sarah+Connor&background=ffcc00&color=000"
+                                                class="req-avatar" alt="SC">
+                                            <span class="req-parent">Sarah Connor</span>
+                                        </div>
+                                        <span class="req-time">10m ago</span>
+                                    </div>
+                                    <div class="req-student"><img
+                                            src="https://ui-avatars.com/api/?name=John+Connor&background=0D8ABC&color=fff"
+                                            class="req-avatar-sm" alt="JC"> John Connor</div>
+                                    <div class="req-msg">Chat Request: Discuss recent decline in Physics quiz scores and
+                                        action plan.</div>
+                                    <div class="req-actions">
+                                        <button class="btn-primary"><i class="fa-solid fa-check"></i> Accept</button>
+                                        <button class="btn-secondary"><i class="fa-solid fa-xmark"></i> Decline</button>
+                                    </div>
+                                </div>
+
+                                <div class="request-card" style="border-left: 3px solid var(--secondary);">
+                                    <div class="req-header">
+                                        <div class="req-user-info">
+                                            <img src="https://ui-avatars.com/api/?name=Thomas+Anderson&background=00d4ff&color=000"
+                                                class="req-avatar" alt="TA">
+                                            <span class="req-parent">Thomas Anderson</span>
+                                        </div>
+                                        <span class="req-time">2h ago</span>
+                                    </div>
+                                    <div class="req-student"><img
+                                            src="https://ui-avatars.com/api/?name=Neo+Anderson&background=0D8ABC&color=fff"
+                                            class="req-avatar-sm" alt="NA"> Neo Anderson</div>
+                                    <div class="req-msg">PTM Request: Setup a video call to discuss advanced mathematics
+                                        placement.</div>
+                                    <div class="req-actions">
+                                        <button class="btn-primary"><i class="fa-solid fa-calendar-check"></i>
+                                            Schedule</button>
+                                        <button class="btn-secondary"><i class="fa-solid fa-xmark"></i> Decline</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Schedule & Meetings Panel -->
+                        <div class="comm-panel">
+                            <h4><i class="fa-regular fa-calendar-check text-cyan"></i> PTM Management</h4>
+
+                            <div class="schedule-box">
+                                <h5>Set Available Time Slots</h5>
+                                <div class="time-inputs">
+                                    <input type="time" class="glass-input sm" style="flex: 1;" value="16:00">
+                                    <span style="color: var(--text-muted);">to</span>
+                                    <input type="time" class="glass-input sm" style="flex: 1;" value="18:00">
+                                </div>
+                                <button class="btn-secondary w-100" style="font-size: 0.85rem;"><i
+                                        class="fa-solid fa-clock-rotate-left"></i> Update Slots</button>
+                            </div>
+
+                            <h5 style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9rem;">Upcoming
+                                Meetings</h5>
+                            <div class="upcoming-meetings custom-scrollbar">
+                                <div class="meeting-card">
+                                    <div class="mc-info">
+                                        <span class="mc-name">Neo Anderson (PTM)</span>
+                                        <span class="mc-time"><i class="fa-regular fa-clock"></i> Today, 4:30 PM</span>
+                                    </div>
+                                    <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;"><i
+                                            class="fa-solid fa-video"></i> Join</button>
+                                </div>
+                                <div class="meeting-card" style="border-left-color: var(--primary);">
+                                    <div class="mc-info">
+                                        <span class="mc-name">Bruce Wayne (PTM)</span>
+                                        <span class="mc-time"><i class="fa-regular fa-clock"></i> Tomorrow, 5:00
+                                            PM</span>
+                                    </div>
+                                    <button class="btn-secondary"
+                                        style="padding: 6px 12px; font-size: 0.8rem;">Reschedule</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Chat Panel -->
+                        <div class="comm-panel">
+                            <h4><i class="fa-regular fa-comments text-success"></i> Active Chat</h4>
+                            <div class="chat-window">
+                                <div class="chat-header">
+                                    <div class="chat-header-info">
+                                        <img src="https://ui-avatars.com/api/?name=Sarah+Connor&background=ffcc00&color=000"
+                                            class="req-avatar" alt="SC">
+                                        <div>
+                                            <div style="line-height:1.2;">Sarah Connor</div>
+                                            <div
+                                                style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">
+                                                John's Mother <span class="status-dot inline"></span></div>
+                                        </div>
+                                    </div>
+                                    <span class="badge prompt-pulse chat-badge">1</span>
+                                </div>
+                                <div class="chat-history custom-scrollbar">
+                                    <div class="chat-msg parent">
+                                        Hello Professor, I accepted the chat request. Is John paying attention in class?
+                                    </div>
+                                    <div class="chat-msg teacher">
+                                        Hi Sarah. Yes, his focus is good, but his recent quiz scores in Quantum Physics
+                                        dropped.
+                                    </div>
+                                    <div class="chat-msg parent">
+                                        I see. What can we do to help him?
+                                    </div>
+                                </div>
+                                <div class="chat-input">
+                                    <input type="text" class="glass-input sm" style="flex: 1;"
+                                        placeholder="Type a message...">
+                                    <button class="btn-primary" style="padding: 8px 15px;"><i
+                                            class="fa-regular fa-paper-plane"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Script tags -->
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+    <script src="teachers_script.js"></script>
+</body>
+
+</html>
